@@ -203,16 +203,22 @@ if __name__ =="__main__":
             # Initialisation de la prédiction de sortie
             prediction_sequence = np.zeros(nb_predictions_to_generate)
 
-
             # ---------------------- Laboratoire 1 - Question 5 - Début de la section à compléter ------------------
-            outputs = model(input_sequence[:usable_input_sequence_len])
-            h = None
-            for value in input_sequence(input_sequence[:usable_input_sequence_len]):
-                output, _ = model(value.unsqueeze(0).unsqueeze(-1), h)
-                prediction_sequence.append(output)
-                h = output
+            first_half = input_sequence[:usable_input_sequence_len]
+            first_half_tensor = torch.tensor(first_half, dtype=torch.float32).unsqueeze(0).unsqueeze(-1).to(
+                device)
 
+            _, h = model(first_half_tensor)
 
+            last_input = first_half_tensor[:, -1, :].unsqueeze(-1)
+
+            for i in range(nb_predictions_to_generate):
+                output, h = model(last_input, h)
+ # Shape: ()
+                converted_output = output.squeeze().detach().cpu().numpy()
+                prediction_sequence[i] = converted_output
+
+                last_input = output.unsqueeze(-1)
 
             # ---------------------- Laboratoire 1 - Question 5 - Fin de la section à compléter ------------------
 
