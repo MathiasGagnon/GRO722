@@ -6,7 +6,8 @@ class Model(nn.Module):
         super(Model, self).__init__()
         self.num_layers = n_layers
         self.hidden_size = n_hidden
-        self.rnn = nn.RNN(input_size=1, hidden_size=self.hidden_size, num_layers=self.num_layers, batch_first=True)
+        self.rnn = nn.GRU(input_size=1, hidden_size=self.hidden_size, num_layers=self.num_layers, batch_first=True)
+        #self.rnn = nn.RNN(input_size=1, hidden_size=self.hidden_size, num_layers=self.num_layers, batch_first=True)
         self.output_layer = nn.Linear(n_hidden, 1)
 
     def forward(self, x, h=None):
