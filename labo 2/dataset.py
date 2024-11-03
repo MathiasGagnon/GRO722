@@ -20,7 +20,7 @@ class Fr_En(Dataset):
         data['fr'] = {}
         data['en'] = {}
         data_cpt = 0
-        df = {}
+        df = {} #Pas un dataframe lol
 
         # Lecture du texte
         with open(filename, encoding='utf-8') as fp:
@@ -72,10 +72,25 @@ class Fr_En(Dataset):
         
 
         # ---------------------- Laboratoire 2 - Question 2 - Début de la section à compléter ------------------
-        self.max_len['fr'] = 0
-        self.max_len['en'] = 0
+        self.max_len['fr'] = max(len(value) for value in data['fr'].values())
+        self.max_len['en'] = max(len(value) for value in data['en'].values())
+        max_len = max(self.max_len.values())
+        self.max_len['fr'] = max_len + 2
+        self.max_len['en'] = max_len + 2
 
+        for value in data['fr'].values():
+            len_diff = max_len - len(value)
+            value.insert(0, self.start_symbol)
+            value.append(self.stop_symbol)
+            if len_diff != 0:
+                for i in range(len_diff): value.append(self.pad_symbol)
 
+        for value in data['en'].values():
+            len_diff = max_len - len(value)
+            value.insert(0, self.start_symbol)
+            value.append(self.stop_symbol)
+            if len_diff != 0:
+                for i in range(len_diff): value.append(self.pad_symbol)
         # ---------------------- Laboratoire 2 - Question 2 - Fin de la section à compléter ------------------
 
 

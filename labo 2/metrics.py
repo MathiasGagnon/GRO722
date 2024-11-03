@@ -1,12 +1,13 @@
 import numpy as np
 import time
+import Levenshtein
     
 def edit_distance(a,b):
     # Calcul de la distance d'édition
 
     # ---------------------- Laboratoire 2 - Question 1 - Début de la section à compléter ------------------
 
-    return None
+    return Levenshtein.distance(a,b)
     
     # ---------------------- Laboratoire 2 - Question 1 - Fin de la section à compléter ------------------
 

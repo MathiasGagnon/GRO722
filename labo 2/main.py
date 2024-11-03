@@ -42,6 +42,9 @@ if __name__ == '__main__':
     # Instanciation de l'ensemble de données
     dataset = Fr_En(n_samp=4000, samplelen=[6,10])
 
+    max = max(len(value) for value in dataset.data['fr'].values())
+    min = (min(len(value) for value in dataset.data['fr'].values()))
+
     # Instanciation du dataloader
     dataload_train = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=n_workers)
 

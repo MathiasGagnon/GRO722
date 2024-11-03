@@ -35,9 +35,9 @@ class Seq2seq(nn.Module):
 
         # ---------------------- Laboratoire 2 - Question 3 - Début de la section à compléter -----------------
 
-        out = None
-        hidden = None
-        
+        x = self.fr_embedding(x)
+        out, hidden = self.encoder_layer(x)
+
         # ---------------------- Laboratoire 2 - Question 3 - Fin de la section à compléter -----------------
 
         return out, hidden
@@ -54,8 +54,11 @@ class Seq2seq(nn.Module):
         for i in range(max_len):
 
             # ---------------------- Laboratoire 2 - Question 3 - Début de la section à compléter -----------------   
-            
-            vec_out = vec_out
+            embedded = self.en_embedding(vec_in)
+            output, hidden = self.decoder_layer(embedded, hidden)
+            output = self.fc(output)
+            vec_out[:, i, :] = output.squeeze(1)
+            vec_in = output.argmax(-1)
 
             # ---------------------- Laboratoire 2 - Question 3 - Début de la section à compléter -----------------
 
