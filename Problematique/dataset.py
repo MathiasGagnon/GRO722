@@ -14,6 +14,10 @@ class HandwrittenWords(Dataset):
         self.start_symbol   = start_symbol = '<sos>'
         self.stop_symbol    = stop_symbol = '<eos>'
 
+        self.pad_coord     = [0,0]
+        self.start_coord   = [1e10,1e10]
+        self.stop_coord    = [1e10,1e10]
+
         self.data = dict()
         with open(filename, 'rb') as fp:
             self.data = pickle.load(fp)
@@ -48,8 +52,20 @@ class HandwrittenWords(Dataset):
             if len_diff != 0:
                 for i in range(len_diff): value[0].append(self.pad_symbol)
 
-        self.dict_size = {'fr': len(self.int2symb)}
-        
+        # Ajout du padding pour les coordonnées
+        self.max_len_coords = dict()
+
+        self.max_len_coords = max(len(value[1]) for value in self.data[1]) + 2
+
+        for value in self.data:
+            len_diff = self.max_len_coords - len(value[1][1])
+            value[1] = np.insert(value[1],0, self.start_coord, axis=1)
+            value[1] = np.insert(value[1], len(value[1][1]), self.stop_coord, axis=1)
+            if len_diff != 0:
+                for i in range(len_diff): value[1] = np.insert(value[1], len(value[1][1]),self.pad_coord, axis=1)
+
+        self.dict_size = {'symb': len(self.int2symb)}
+
     def __len__(self):
         return len(self.data)
 
