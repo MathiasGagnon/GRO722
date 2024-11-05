@@ -30,41 +30,39 @@ class trajectory2seq(nn.Module):
         # À compléter
 
         # Définition de la couche dense pour la sortie
-        self.fc = nn.Linear(hidden_dim, self.dict_size)
+        self.fc = nn.Sequential(
+            nn.Linear(hidden_dim, self.dict_size),
+            nn.Softmax(dim=-1)
+        )
+
         self.to(device)
 
     def encoder(self, x):
         # Encodeur
-
-        # ---------------------- Laboratoire 2 - Question 3 - Début de la section à compléter -----------------
-
         out, hidden = self.encoder_layer(x)
-
-        # ---------------------- Laboratoire 2 - Question 3 - Fin de la section à compléter -----------------
-
         return out, hidden
 
 
     def decoder(self, encoder_outs, hidden):
-        # Initialisation des variables
-        max_len = self.max_len['txt'] # Longueur max de la séquence anglaise (avec padding)
         batch_size = hidden.shape[1] # Taille de la batch
-        vec_in = torch.zeros((batch_size, 1)).to(self.device).long() # Vecteur d'entrée pour décodage
-        vec_out = torch.zeros((batch_size, max_len, self.dict_size['en'])).to(self.device) # Vecteur de sortie du décodage
+        vec_in = torch.zeros((batch_size, 1)).to(self.device).long()  # Vecteur d'entrée pour décodage
+        vec_out = torch.zeros((batch_size, self.maxlen['txt'])).to(self.device).long()  # Vecteur de sortie du décodage
 
-        # Boucle pour tous les symboles de sortie
-        for i in range(max_len):
-
-            # ---------------------- Laboratoire 2 - Question 3 - Début de la section à compléter -----------------
-            embedded = self.en_embedding(vec_in)
+        sos_token = self.symb2int['<sos>']
+        vec_in[:, 0] = sos_token
+        vec_out[:, 0] = sos_token
+        
+        for i in range(self.maxlen['txt']-1):
+            embedded = self.text_embedding(vec_in)  # Utiliser le bon embedding pour le texte
             output, hidden = self.decoder_layer(embedded, hidden)
-            output = self.fc(output)
-            vec_out[:, i, :] = output.squeeze(1)
-            vec_in = output.argmax(-1)
 
-            # ---------------------- Laboratoire 2 - Question 3 - Début de la section à compléter -----------------
+            output = self.fc(output)  # Appliquer la couche linéaire
+            argmax_output = output.argmax(dim=-1)
+            vec_out[:, i+1] = output.squeeze(-1)
+            vec_in = argmax_output
 
         return vec_out, hidden, None
+
 
     def forward(self, x):
         # Passant avant

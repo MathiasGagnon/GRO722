@@ -8,14 +8,14 @@ import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from models import *
 from dataset import *
-from metrics import *
+from metrics import confusion_matrix, edit_distance
 
 if __name__ == '__main__':
 
     # ---------------- Paramètres et hyperparamètres ----------------#
     force_cpu = False           # Forcer a utiliser le cpu?
     trainning = True           # Entrainement?
-    test = True                # Test?
+    test = False                # Test?
     learning_curves = True     # Affichage des courbes d'entrainement?
     gen_test_images = True     # Génération images test?
     seed = 1                # Pour répétabilité
@@ -42,7 +42,7 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() and not force_cpu else "cpu")
 
     # Instanciation de l'ensemble de données
-    dataset = HandwrittenWords('data_trainval.p')
+    dataset = HandwrittenWords('Problematique/data_trainval.p')
     
     # Séparation de l'ensemble de données (entraînement et validation)
     n_train_samp = int(len(dataset) * train_val_split)
@@ -82,29 +82,24 @@ if __name__ == '__main__':
             dist = 0
             for batch_idx, data in enumerate(dataload_train):
                 # Formatage des données
-                fr_seq, target_seq = data
-                fr_seq = fr_seq.to(device).long()
-                target_seq = target_seq.to(device).long()
+                coord, cible = data
+                coord = coord.to(device).float()
+                cible = cible.to(device)
 
                 optimizer.zero_grad()  # Mise a zero du gradient
-                output, hidden, attn = model(fr_seq)  # Passage avant
-                loss = criterion(output.view((-1, model.dict_size['en'])), target_seq.view(-1))
+                output, hidden, attn = model(coord)  # Passage avant
+                loss = criterion(output.float(), cible)
 
                 loss.backward()  # calcul du gradient
                 optimizer.step()  # Mise a jour des poids
                 running_loss_train += loss.item()
 
                 # calcul de la distance d'édition
-                output_list = torch.argmax(output, dim=-1).detach().cpu().tolist()
-                target_seq_list = target_seq.cpu().tolist()
-                M = len(output_list)
-                for i in range(batch_size):
-                    a = target_seq_list[i]
-                    b = output_list[i]
-                    Ma = a.index(1)  # longueur mot a
-                    Mb = b.index(1) if 1 in b else len(b)  # longueur mot b
-                    dist += edit_distance(a[:Ma], b[:Mb]) / batch_size
-
+                output_list = output.detach().cpu().tolist()
+                cible_list = cible.cpu().tolist()
+                dist = []
+                for out, cib in zip(output_list, cible_list):
+                    dist.append(edit_distance(out, cib))
                 # Affichage pendant l'entraînement
                 print(
                     'Train - Epoch: {}/{} [{}/{} ({:.0f}%)] Average Loss: {:.6f} Average Edit Distance: {:.6f}'.format(
