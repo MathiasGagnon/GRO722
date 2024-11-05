@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class trajectory2seq(nn.Module):
-    def __init__(self, hidden_dim, n_layers, int2symb, symb2int, dict_size, device, maxlen):
+    def __init__(self, hidden_dim, n_layers, int2symb, symb2int, dict_size, device, maxlen, batch_size):
         super(trajectory2seq, self).__init__()
         # Definition des parametres
         self.hidden_dim = hidden_dim
@@ -18,19 +18,58 @@ class trajectory2seq(nn.Module):
         self.int2symb = int2symb
         self.dict_size = dict_size
         self.maxlen = maxlen
+        self.batch_size = batch_size
 
-        # Definition des couches
-        # Couches pour rnn
+        # Définition des couches du rnn
+        self.coord_embedding = nn.Embedding(self.dict_size, hidden_dim)
+        self.text_embedding = nn.Embedding(self.dict_size, hidden_dim)
+        self.encoder_layer = nn.GRU(input_size=461, hidden_size=hidden_dim, num_layers=n_layers, batch_first=True)
+        self.decoder_layer = nn.GRU(hidden_dim, hidden_dim, n_layers, batch_first=True)
+
+        # Couche pour l'attention
         # À compléter
 
-        # Couches pour attention
-        # À compléter
+        # Définition de la couche dense pour la sortie
+        self.fc = nn.Linear(hidden_dim, self.dict_size)
+        self.to(device)
 
-        # Couche dense pour la sortie
-        # À compléter
+    def encoder(self, x):
+        # Encodeur
+
+        # ---------------------- Laboratoire 2 - Question 3 - Début de la section à compléter -----------------
+
+        out, hidden = self.encoder_layer(x)
+
+        # ---------------------- Laboratoire 2 - Question 3 - Fin de la section à compléter -----------------
+
+        return out, hidden
+
+
+    def decoder(self, encoder_outs, hidden):
+        # Initialisation des variables
+        max_len = self.max_len['txt'] # Longueur max de la séquence anglaise (avec padding)
+        batch_size = hidden.shape[1] # Taille de la batch
+        vec_in = torch.zeros((batch_size, 1)).to(self.device).long() # Vecteur d'entrée pour décodage
+        vec_out = torch.zeros((batch_size, max_len, self.dict_size['en'])).to(self.device) # Vecteur de sortie du décodage
+
+        # Boucle pour tous les symboles de sortie
+        for i in range(max_len):
+
+            # ---------------------- Laboratoire 2 - Question 3 - Début de la section à compléter -----------------
+            embedded = self.en_embedding(vec_in)
+            output, hidden = self.decoder_layer(embedded, hidden)
+            output = self.fc(output)
+            vec_out[:, i, :] = output.squeeze(1)
+            vec_in = output.argmax(-1)
+
+            # ---------------------- Laboratoire 2 - Question 3 - Début de la section à compléter -----------------
+
+        return vec_out, hidden, None
 
     def forward(self, x):
-        # À compléter
-        return None
+        # Passant avant
+        out, h = self.encoder(x)
+        out, hidden, attn = self.decoder(out,h)
+        return out, hidden, attn
     
 

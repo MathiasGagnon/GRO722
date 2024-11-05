@@ -43,28 +43,30 @@ class HandwrittenWords(Dataset):
         # Ajout du padding pour les targets TODO: idk comment faire encore pour les mouvements
         self.max_len = dict()
 
-        self.max_len = max(len(value) for value in self.data[0]) + 2
+        self.max_len['txt'] = max(len(value) for value in self.data[0]) + 2
 
         for value in self.data:
-            len_diff = self.max_len - len(value[0])
+            len_diff = self.max_len['txt'] - len(value[0])
             value[0].insert(0, self.start_symbol)
             value[0].append(self.stop_symbol)
             if len_diff != 0:
                 for i in range(len_diff): value[0].append(self.pad_symbol)
 
         # Ajout du padding pour les coordonnées
-        self.max_len_coords = dict()
+        self.max_len['coords'] = 0
+        for value in self.data:
+            if len(value[1][1]) > self.max_len['coords']: self.max_len['coords'] = len(value[1][1])
 
-        self.max_len_coords = max(len(value[1]) for value in self.data[1]) + 2
+        self.max_len['coords'] += 2
 
         for value in self.data:
-            len_diff = self.max_len_coords - len(value[1][1])
+            len_diff = self.max_len['coords'] - len(value[1][1])
             value[1] = np.insert(value[1],0, self.start_coord, axis=1)
             value[1] = np.insert(value[1], len(value[1][1]), self.stop_coord, axis=1)
             if len_diff != 0:
                 for i in range(len_diff): value[1] = np.insert(value[1], len(value[1][1]),self.pad_coord, axis=1)
 
-        self.dict_size = {'symb': len(self.int2symb)}
+        self.dict_size = len(self.int2symb)
 
     def __len__(self):
         return len(self.data)
