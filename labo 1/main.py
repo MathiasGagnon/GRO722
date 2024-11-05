@@ -19,7 +19,7 @@ if __name__ =="__main__":
 
     # ---------------- Paramètres et hyperparamètres ----------------#
     force_cpu = True            # Forcer l'utilisation du CPU (si un GPU est disponible)
-    training = True             # Faire l'entrainement sur l'ensemble de donnees
+    training = False             # Faire l'entrainement sur l'ensemble de donnees
     learning_curves = True      # Visualiser les courbes d'apprentissage pendant l'entrainement
     test_tagging = False         # Visualiser l'annotation sur des echantillons de validation
     test_generation = True     # Visualiser la generation sur des echantillons de validation
@@ -91,20 +91,15 @@ if __name__ =="__main__":
                 in_seq, target_seq = [obj.to(device).float() for obj in data]
 
                 # ---------------------- Laboratoire 1 - Question 3 - Début de la section à compléter ------------------
-                # Forward pass: compute the model output
-                outputs, _ = model(in_seq.unsqueeze(-1))  # Assuming `model` returns both output and hidden state
+                outputs, _ = model(in_seq.unsqueeze(-1))
 
-                # Compute the loss
                 loss = criterion(outputs, target_seq)
 
-                # Backward pass and optimization
-                optimizer.zero_grad()  # Zero the parameter gradients
-                loss.backward()  # Backpropagation
-                optimizer.step()  # Optimization step
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
 
-                # Update running training loss
                 running_loss_train += loss.item()
-
                 # ---------------------- Laboratoire 1 - Question 3 - Fin de la section à compléter ------------------
 
                 # Affichage pendant l'entraînement
@@ -120,16 +115,12 @@ if __name__ =="__main__":
                 in_seq, target_seq = [obj.to(device).float() for obj in data]
 
                 # ---------------------- Laboratoire 1 - Question 3 - Début de la section à compléter ------------------
-                # Forward pass: compute the model output
-                with torch.no_grad():  # Disable gradient computation for validation
+                with torch.no_grad():
                     outputs, _ = model(in_seq.unsqueeze(-1))
 
-                # Compute the loss
                 loss = criterion(outputs, target_seq)
 
-                # Update running validation loss
                 running_loss_val += loss.item()
-
                 # ---------------------- Laboratoire 1 - Question 3 - Fin de la section à compléter ------------------
 
             print('\nValidation - Average loss: {:.4f}'.format(running_loss_val/len(dataload_val)))
@@ -163,23 +154,13 @@ if __name__ =="__main__":
         model = model.to(device)
         model.eval()
         for num in range(10):
-            # Extraction d'une séquence du dataset de validation
-            input_sequence, target_sequence = dataset_val[np.random.randint(0,len(dataset_val))]
+            input_sequence, target_sequence = dataset_val[num]
 
-            # Initialisation de la prédiction de sortie
             prediction_sequence = np.zeros(len(input_sequence))
             input_sequence = input_sequence.float()
 
-
-            # ---------------------- Laboratoire 1 - Question 4 - Début de la section à compléter ------------------
-            # Forward pass through the model to get the output
             output, _ = model(input_sequence.unsqueeze(0).unsqueeze(-1))
-
-            # Convert the output to a numpy array for plotting
             prediction_sequence = output.squeeze().detach().cpu().numpy()
-            
-
-            # ---------------------- Laboratoire 1 - Question 4 - Fin de la section à compléter ------------------
 
             plt.title("Tagged data")
             plt.plot(target_sequence)

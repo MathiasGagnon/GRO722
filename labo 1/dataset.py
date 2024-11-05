@@ -15,10 +15,8 @@ class SignauxDataset(Dataset):
 
     def __len__(self):
 
-        # ------------------------ Laboratoire 1 - Question 1 - Début de la section à compléter ----------------------------
-        
-        return len(self.data)
-
+        # ------------------------ Laboratoire 1 - Question 1 - Début de la section à compléter ----------------------------     
+        return len(self.data) 
         # ---------------------- Laboratoire 1 - Question 1 - Fin de la section à compléter --------------------------------
 
     def __getitem__(self, idx):
@@ -30,7 +28,6 @@ class SignauxDataset(Dataset):
             return input_sequence, target_sequence
         else:
             return torch.tensor(np.array(value))
-
         # ---------------------- Laboratoire 1 - Question 1 - Fin de la section à compléter --------------------------------
     
     def visualize(self, idx):

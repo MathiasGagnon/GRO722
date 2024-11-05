@@ -7,15 +7,9 @@ class Model(nn.Module):
         self.num_layers = n_layers
         self.hidden_size = n_hidden
         self.rnn = nn.GRU(input_size=1, hidden_size=self.hidden_size, num_layers=self.num_layers, batch_first=True)
-        #self.rnn = nn.RNN(input_size=1, hidden_size=self.hidden_size, num_layers=self.num_layers, batch_first=True)
-        self.output_layer = nn.Linear(n_hidden, 1)
+        self.output_layer = nn.Linear(self.hidden_size, 1)
 
     def forward(self, x, h=None):
-        # if h is None:
-        #     h = torch.zeros(self.num_layers, x.size(0), self.hidden_size)
-        # output, h = self.rnn(x, h)
-        # return output, h
-
         if h is None:
             h = torch.zeros(self.num_layers, x.size(0), self.hidden_size)
 
