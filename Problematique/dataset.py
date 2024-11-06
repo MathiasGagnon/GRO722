@@ -43,10 +43,10 @@ class HandwrittenWords(Dataset):
         # Ajout du padding pour les targets TODO: idk comment faire encore pour les mouvements
         self.max_len = dict()
 
-        self.max_len['txt'] = max(len(value) for value in self.data[0]) + 2
+        self.max_len['txt'] = max(len(value[0]) for value in self.data) + 2
 
         for value in self.data:
-            len_diff = self.max_len['txt'] - len(value[0])
+            len_diff = self.max_len['txt'] - len(value[0]) -2
             value[0].insert(0, self.start_symbol)
             value[0].append(self.stop_symbol)
             if len_diff != 0:

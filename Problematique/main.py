@@ -22,12 +22,12 @@ if __name__ == '__main__':
     n_workers = 0           # Nombre de threads pour chargement des données (mettre à 0 sur Windows)
 
     # À compléter
-    batch_size = 10             # Taille des lots
+    batch_size = 350             # Taille des lots
     n_epochs = 50               # Nombre d'iteration sur l'ensemble de donnees
-    lr = 0.01                   # Taux d'apprentissage pour l'optimizateur
+    lr = 0.02                 # Taux d'apprentissage pour l'optimizateur
 
-    n_hidden = 25               # Nombre de neurones caches par couche
-    n_layers = 1                # Nombre de de couches
+    n_hidden = 20               # Nombre de neurones caches par couche
+    n_layers = 2                # Nombre de de couches
 
     train_val_split = .7        # Ratio des echantillions pour l'entrainement
 
@@ -88,18 +88,25 @@ if __name__ == '__main__':
 
                 optimizer.zero_grad()  # Mise a zero du gradient
                 output, hidden, attn = model(coord)  # Passage avant
-                loss = criterion(output.float(), cible)
+                test = output.view((-1, model.dict_size))
+                loss = criterion(output.view((-1, model.dict_size)), cible.view(-1))
 
                 loss.backward()  # calcul du gradient
                 optimizer.step()  # Mise a jour des poids
                 running_loss_train += loss.item()
 
-                # calcul de la distance d'édition
+                 # calcul de la distance d'édition
                 output_list = output.detach().cpu().tolist()
                 cible_list = cible.cpu().tolist()
-                dist = []
-                for out, cib in zip(output_list, cible_list):
-                    dist.append(edit_distance(out, cib))
+                for out, cible in zip(output_list, cible_list):
+                    out_word = [dataset.int2symb[np.argmax(char)] for char in out if np.argmax(char) not in [0, 1, 2]]
+                    out_str = ''.join(out_word)
+
+                    cible_word = []
+                    cible_word = [dataset.int2symb[char] for char in cible if char not in [0, 1, 2]]
+                    cible_str = ''.join(cible_word)
+
+                    dist += edit_distance(out_str, cible_str)
                 # Affichage pendant l'entraînement
                 print(
                     'Train - Epoch: {}/{} [{}/{} ({:.0f}%)] Average Loss: {:.6f} Average Edit Distance: {:.6f}'.format(
