@@ -1,7 +1,7 @@
 # GRO722 Laboratoire 2
 # Auteur: Jean-Samuel Lauzon et  Jonathan Vincent
 # Hivers 2021
-
+import os
 import torch
 from torch import nn
 import numpy as np
@@ -11,6 +11,8 @@ from torch.utils.data import Dataset, DataLoader
 from dataset import *
 from models import *
 from metrics import *
+
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 if __name__ == '__main__':
 

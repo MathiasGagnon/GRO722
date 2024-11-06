@@ -26,7 +26,7 @@ if __name__ == '__main__':
     n_epochs = 50               # Nombre d'iteration sur l'ensemble de donnees
     lr = 0.01                   # Taux d'apprentissage pour l'optimizateur
 
-    n_hidden = 25               # Nombre de neurones caches par couche
+    n_hidden = 6               # Nombre de neurones caches par couche
     n_layers = 1                # Nombre de de couches
 
     train_val_split = .7        # Ratio des echantillions pour l'entrainement
@@ -60,6 +60,8 @@ if __name__ == '__main__':
         n_layers=n_layers, device=device, symb2int=dataset.symb2int,
         int2symb=dataset.int2symb, dict_size=dataset.dict_size, maxlen=dataset.max_len,batch_size = batch_size)
     model = model.to(device)
+    params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Model Parameters : {params}")
 
 
     # Initialisation des variables
@@ -68,7 +70,7 @@ if __name__ == '__main__':
     if trainning:
 
         # Fonction de coût et optimizateur
-        criterion = nn.CrossEntropyLoss(ignore_index=2)  # ignorer les symboles <pad>
+        criterion = nn.CrossEntropyLoss()  # ignorer les symboles <pad>
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
         if learning_curves:
@@ -88,7 +90,12 @@ if __name__ == '__main__':
 
                 optimizer.zero_grad()  # Mise a zero du gradient
                 output, hidden, attn = model(coord)  # Passage avant
-                loss = criterion(output.float(), cible)
+                batch_size, seq_len, num_classes = output.size()
+
+                loss_output = output.view(-1, num_classes)
+                loss_cible = cible.view(-1, num_classes)
+
+                loss = criterion(loss_cible, loss_output).mean()
 
                 loss.backward()  # calcul du gradient
                 optimizer.step()  # Mise a jour des poids
@@ -97,22 +104,21 @@ if __name__ == '__main__':
                 # calcul de la distance d'édition
                 output_list = output.detach().cpu().tolist()
                 cible_list = cible.cpu().tolist()
-                dist = []
-                for out, cib in zip(output_list, cible_list):
-                    dist.append(edit_distance(out, cib))
-                # Affichage pendant l'entraînement
-                print(
-                    'Train - Epoch: {}/{} [{}/{} ({:.0f}%)] Average Loss: {:.6f} Average Edit Distance: {:.6f}'.format(
-                        epoch, n_epochs, batch_idx * batch_size, len(dataload_train.dataset),
-                                         100. * batch_idx * batch_size / len(dataload_train.dataset),
-                                         running_loss_train / (batch_idx + 1),
-                                         dist / len(dataload_train)), end='\r')
+                for out, cible in zip(output_list, cible_list):
+                    out_word = [dataset.int2symb[np.argmax(char)] for char in out if np.argmax(char) not in [0, 1, 2]]
+                    out_str = ''.join(out_word)
+
+                    cible_word = []
+                    cible_word = [dataset.int2symb[np.argmax(char)] for char in cible if np.argmax(char) not in [0, 1, 2]]
+                    cible_str = ''.join(cible_word)
+
+                    dist += edit_distance(out_str, cible_str)
 
             print('Train - Epoch: {}/{} [{}/{} ({:.0f}%)] Average Loss: {:.6f} Average Edit Distance: {:.6f}'.format(
                 epoch, n_epochs, (batch_idx + 1) * batch_size, len(dataload_train.dataset),
                                  100. * (batch_idx + 1) * batch_size / len(dataload_train.dataset),
                                  running_loss_train / (batch_idx + 1),
-                                 dist / len(dataload_train)), end='\r')
+                                 dist / batch_size), end='\n')
             print('\n')
             # Affichage graphique
             if learning_curves:
@@ -132,6 +138,8 @@ if __name__ == '__main__':
         if learning_curves:
             plt.show()
             plt.close('all')
+
+
 
     if test:
         # Évaluation

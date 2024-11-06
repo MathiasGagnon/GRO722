@@ -14,8 +14,8 @@ def edit_distance(a,b):
     # ---------------------- Laboratoire 2 - Question 1 - Fin de la section à compléter ------------------
 
 if __name__ =="__main__":
-    a = list('allo')
-    b = list('apollo2')
+    a = list('2112')
+    b = list('1211')
     c = edit_distance(a,b)
 
     print('Distance d\'edition entre ',''.join(a),' et ',''.join(b), ': ', c)
