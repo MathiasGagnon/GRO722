@@ -8,7 +8,7 @@ import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from models import *
 from dataset import *
-from metrics import confusion_matrix, edit_distance
+from metrics import edit_distance
 
 if __name__ == '__main__':
 
@@ -22,12 +22,12 @@ if __name__ == '__main__':
     n_workers = 0           # Nombre de threads pour chargement des données (mettre à 0 sur Windows)
 
     # À compléter
-    batch_size = 350             # Taille des lots
-    n_epochs = 50               # Nombre d'iteration sur l'ensemble de donnees
+    batch_size = 50             # Taille des lots
+    n_epochs = 300               # Nombre d'iteration sur l'ensemble de donnees
     lr = 0.02                 # Taux d'apprentissage pour l'optimizateur
 
-    n_hidden = 20               # Nombre de neurones caches par couche
-    n_layers = 2                # Nombre de de couches
+    n_hidden = 25               # Nombre de neurones caches par couche
+    n_layers = 1                # Nombre de de couches
 
     train_val_split = .7        # Ratio des echantillions pour l'entrainement
 
@@ -42,7 +42,7 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() and not force_cpu else "cpu")
 
     # Instanciation de l'ensemble de données
-    dataset = HandwrittenWords('Problematique/data_trainval.p')
+    dataset = HandwrittenWords('data_trainval.p')
     
     # Séparation de l'ensemble de données (entraînement et validation)
     n_train_samp = int(len(dataset) * train_val_split)
@@ -108,23 +108,23 @@ if __name__ == '__main__':
 
                     dist += edit_distance(out_str, cible_str)
                 # Affichage pendant l'entraînement
-                print(
-                    'Train - Epoch: {}/{} [{}/{} ({:.0f}%)] Average Loss: {:.6f} Average Edit Distance: {:.6f}'.format(
-                        epoch, n_epochs, batch_idx * batch_size, len(dataload_train.dataset),
-                                         100. * batch_idx * batch_size / len(dataload_train.dataset),
-                                         running_loss_train / (batch_idx + 1),
-                                         dist / len(dataload_train)), end='\r')
+                # print(
+                #     'Train - Epoch: {}/{} [{}/{} ({:.0f}%)] Average Loss: {:.6f} Average Edit Distance: {:.6f}'.format(
+                #         epoch, n_epochs, batch_idx * batch_size, len(dataload_train.dataset),
+                #                          100. * batch_idx * batch_size / len(dataload_train.dataset),
+                #                          running_loss_train / (batch_idx + 1),
+                #                          dist / len(dataload_train)), end='\r')
 
             print('Train - Epoch: {}/{} [{}/{} ({:.0f}%)] Average Loss: {:.6f} Average Edit Distance: {:.6f}'.format(
                 epoch, n_epochs, (batch_idx + 1) * batch_size, len(dataload_train.dataset),
                                  100. * (batch_idx + 1) * batch_size / len(dataload_train.dataset),
                                  running_loss_train / (batch_idx + 1),
-                                 dist / len(dataload_train)), end='\r')
+                                 dist / len(dataload_train.dataset)), end='\r')
             print('\n')
             # Affichage graphique
             if learning_curves:
                 train_loss.append(running_loss_train / len(dataload_train))
-                train_dist.append(dist / len(dataload_train))
+                train_dist.append(dist / len(dataload_train.dataset))
                 ax.cla()
                 ax.plot(train_loss, label='training loss')
                 ax.plot(train_dist, label='training distance')

@@ -23,7 +23,7 @@ class trajectory2seq(nn.Module):
         # Définition des couches du rnn
         self.coord_embedding = nn.Embedding(self.dict_size, hidden_dim)
         self.text_embedding = nn.Embedding(self.dict_size, hidden_dim)
-        self.encoder_layer = nn.GRU(input_size=461, hidden_size=hidden_dim, num_layers=n_layers, batch_first=True, bidirectional=True)
+        self.encoder_layer = nn.GRU(input_size=461, hidden_size=hidden_dim, num_layers=n_layers, batch_first=True)
         self.decoder_layer = nn.GRU(hidden_dim, hidden_dim, n_layers, batch_first=True)
 
         # Couche pour l'attention
@@ -31,9 +31,11 @@ class trajectory2seq(nn.Module):
 
         # Définition de la couche dense pour la sortie
         self.fc = nn.Sequential(
-            nn.Linear(hidden_dim, self.dict_size),
-            nn.Softmax(dim=-1)
+            nn.Linear(2*hidden_dim, self.dict_size),
         )
+
+        self.similarity = nn.CosineSimilarity(dim=-1)
+        self.softmax = nn.Softmax(dim=1)
 
         self.to(device)
 
@@ -56,7 +58,11 @@ class trajectory2seq(nn.Module):
             embedded = self.text_embedding(vec_in)  # Utiliser le bon embedding pour le texte
             output, hidden = self.decoder_layer(embedded, hidden)
 
-            output = self.fc(output)  # Appliquer la couche linéaire
+            a = self.attention(encoder_outs, output)
+
+            combined = torch.cat((output, a), dim=-1)
+
+            output = self.fc(combined)  # Appliquer la couche linéaire
             argmax_output = output.argmax(dim=-1)
             vec_out[:, i+1,:] = output.squeeze(1)
             vec_in = argmax_output
@@ -69,5 +75,10 @@ class trajectory2seq(nn.Module):
         out, h = self.encoder(x)
         out, hidden, attn = self.decoder(out,h)
         return out, hidden, attn
-    
 
+
+    def attention(self, v, q):
+        attn_score = self.similarity(v, q)
+        w = self.softmax(attn_score)
+        a = torch.bmm(w.unsqueeze(1), v)
+        return a
