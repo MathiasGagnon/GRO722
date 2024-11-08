@@ -22,11 +22,11 @@ if __name__ == '__main__':
     n_workers = 0           # Nombre de threads pour chargement des données (mettre à 0 sur Windows)
 
     # À compléter
-    batch_size = 50             # Taille des lots
-    n_epochs = 300               # Nombre d'iteration sur l'ensemble de donnees
-    lr = 0.02                 # Taux d'apprentissage pour l'optimizateur
+    batch_size = 350             # Taille des lots
+    n_epochs = 10               # Nombre d'iteration sur l'ensemble de donnees
+    lr = 0.01                 # Taux d'apprentissage pour l'optimizateur
 
-    n_hidden = 25               # Nombre de neurones caches par couche
+    n_hidden = 20               # Nombre de neurones caches par couche
     n_layers = 1                # Nombre de de couches
 
     train_val_split = .7        # Ratio des echantillions pour l'entrainement
@@ -140,20 +140,60 @@ if __name__ == '__main__':
             plt.show()
             plt.close('all')
 
-    if test:
+    if 1:
         # Évaluation
-        # À compléter
 
-        # Charger les données de tests
-        # À compléter
+        # Chargement des poids
+        model = torch.load('model.pt')
+        dataset.symb2int = model.symb2int
+        dataset.int2symb = model.int2symb
 
-        # Affichage de l'attention
-        # À compléter (si nécessaire)
+        for i in range(10):
+            # Extract a sequence from the validation dataset
+            coord_seq, target_seq = dataset[np.random.randint(0, len(dataset))]
+            coord_seq = coord_seq[None, :].to(device).float()  # Shape [1, 2, *]
 
-        # Affichage des résultats de test
-        # À compléter
-        
-        # Affichage de la matrice de confusion
-        # À compléter
+            # Evaluate the sequence
+            output, hidden, attn = model(coord_seq)
+            out = torch.argmax(output, dim=2).detach().cpu()[0, :].tolist()
 
-        pass
+            # Convert sequences to human-readable format
+            in_seq = coord_seq.squeeze(0).detach().cpu().numpy()  # Shape [2, *]
+            target = [model.int2symb[i] for i in target_seq.detach().cpu().tolist()]
+            out_seq = [model.int2symb[i] for i in out]
+
+            print('Input:  ', in_seq)
+            print('Target: ', ' '.join(target))
+            print('Output: ', ' '.join(out_seq))
+            print('')
+
+            # Attention matrix for this sequence
+            attn = attn.detach().cpu()[0, :, :]  # Shape [input_length, output_length]
+
+            # Plotting coordinates
+            x_coords, y_coords = in_seq[0], in_seq[1]
+            num_letters = len(out_seq)
+
+            # Normalize attention for better visual scaling
+            attn_normalized = attn / attn.max()
+
+            # Loop through each predicted letter and its attention weights
+            for idx, letter in enumerate(out_seq):
+                # Set color intensity based on attention values
+                colors = attn_normalized[:, idx].numpy()
+
+                # Create a figure for each letter
+                plt.figure(figsize=(6, 6))
+
+                # Scatter plot with varying intensity based on attention weights, using a blue colormap
+                scatter = plt.scatter(x_coords, y_coords, c=colors, cmap="Blues", s=50, edgecolor='black')
+
+                # Labels and title
+                plt.title(f"Attention-Weighted Coordinates for Letter: '{letter}'")
+                plt.xlabel("X Coordinate")
+                plt.ylabel("Y Coordinate")
+
+                # Add a colorbar to show intensity levels
+                plt.colorbar(scatter, label='Attention Intensity')
+
+                plt.show()

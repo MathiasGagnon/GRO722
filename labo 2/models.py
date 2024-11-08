@@ -27,7 +27,12 @@ class Seq2seq(nn.Module):
         self.decoder_layer = nn.GRU(n_hidden, n_hidden, n_layers, batch_first=True)
 
         # Définition de la couche dense pour la sortie
-        self.fc = nn.Linear(n_hidden, self.dict_size['en'])
+        self.fc = nn.Linear(2*n_hidden, self.dict_size['en'])
+
+        # Couche attention
+        self.similarity = nn.CosineSimilarity(dim=-1)
+        self.softmax = nn.Softmax(dim=1)
+
         self.to(device)
         
     def encoder(self, x):
@@ -49,26 +54,37 @@ class Seq2seq(nn.Module):
         batch_size = hidden.shape[1] # Taille de la batch
         vec_in = torch.zeros((batch_size, 1)).to(self.device).long() # Vecteur d'entrée pour décodage 
         vec_out = torch.zeros((batch_size, max_len, self.dict_size['en'])).to(self.device) # Vecteur de sortie du décodage
-
+        attention_w = torch.zeros((batch_size, self.max_len['fr'], self.max_len['en'])).to(self.device)
         # Boucle pour tous les symboles de sortie
         for i in range(max_len):
 
             # ---------------------- Laboratoire 2 - Question 3 - Début de la section à compléter -----------------   
             embedded = self.en_embedding(vec_in)
             output, hidden = self.decoder_layer(embedded, hidden)
-            output = self.fc(output)
+
+            a, w = self.attention(encoder_outs, output)
+            attention_w[:,i,:] = w
+            combined = torch.cat((output, a), dim=-1)
+
+            output = self.fc(combined)
             vec_out[:, i, :] = output.squeeze(1)
             vec_in = output.argmax(-1)
 
             # ---------------------- Laboratoire 2 - Question 3 - Début de la section à compléter -----------------
 
-        return vec_out, hidden, None
+        return vec_out, hidden, attention_w
 
     def forward(self, x):
         # Passant avant
         out, h = self.encoder(x)
         out, hidden, attn = self.decoder(out,h)
         return out, hidden, attn
+
+    def attention(self, v, q):
+        attn_score = self.similarity(v, q)
+        w = self.softmax(attn_score)
+        a = torch.matmul(w.unsqueeze(1), v)
+        return a, w
 
 
 class Seq2seq_attn(nn.Module):

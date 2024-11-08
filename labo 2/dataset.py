@@ -9,7 +9,7 @@ import re
 
 class Fr_En(Dataset):
     """Ensemble de donnees de mots/phrases en francais et anglais."""
-    def __init__(self, filename='labo 2/fra.txt', n_samp=2000,start=0, samplelen=[7,10]):
+    def __init__(self, filename='fra.txt', n_samp=2000,start=0, samplelen=[7,10]):
         # Initialisation des variables
         self.pad_symbol     = pad_symbol = '<pad>'
         self.start_symbol   = start_symbol = '<sos>'
@@ -77,6 +77,7 @@ class Fr_En(Dataset):
         max_len = max(self.max_len.values())
         self.max_len['fr'] = max_len + 2
         self.max_len['en'] = max_len + 2
+
         for value in data['fr'].values():
             len_diff = max_len - len(value)
             value.insert(0, self.start_symbol)
@@ -118,6 +119,6 @@ class Fr_En(Dataset):
 
 if __name__ == "__main__":
     print("\nExample de données de la base de données : \n")
-    a = Fr_En('labo 2/fra.txt')
+    a = Fr_En('fra.txt')
     a.visualize(np.random.randint(0,len(a)))
     print('\n')

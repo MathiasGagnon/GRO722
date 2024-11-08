@@ -17,7 +17,7 @@ if __name__ == '__main__':
     # ---------------- Paramètres et hyperparamètres ----------------#
     force_cpu = 1               # Forcer l'utilisation du CPU (si un GPU est disponible)
     training = 1                # Faire l'entrainement sur l'ensemble de donnees
-    display_attention = 0       # Affichage des poids d'attention
+    display_attention = 1       # Affichage des poids d'attention
     learning_curves = 1         # Visualiser les courbes d'apprentissage pendant l'entrainement
     test = 1                    # Visualiser la generation sur des echantillons de validation
     batch_size = 100            # Taille des lots
