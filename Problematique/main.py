@@ -22,11 +22,11 @@ if __name__ == '__main__':
     n_workers = 0           # Nombre de threads pour chargement des données (mettre à 0 sur Windows)
 
     # À compléter
-    batch_size = 350             # Taille des lots
-    n_epochs = 10               # Nombre d'iteration sur l'ensemble de donnees
+    batch_size = 50             # Taille des lots
+    n_epochs = 15               # Nombre d'iteration sur l'ensemble de donnees
     lr = 0.01                 # Taux d'apprentissage pour l'optimizateur
 
-    n_hidden = 20               # Nombre de neurones caches par couche
+    n_hidden = 6               # Nombre de neurones caches par couche
     n_layers = 1                # Nombre de de couches
 
     train_val_split = .7        # Ratio des echantillions pour l'entrainement
@@ -89,7 +89,7 @@ if __name__ == '__main__':
                 optimizer.zero_grad()  # Mise a zero du gradient
                 output, hidden, attn = model(coord)  # Passage avant
                 test = output.view((-1, model.dict_size))
-                loss = criterion(output.view((-1, model.dict_size)), cible.view(-1))
+                loss = criterion(output.contiguous().view((-1, model.dict_size)), cible.view(-1))
 
                 loss.backward()  # calcul du gradient
                 optimizer.step()  # Mise a jour des poids
@@ -99,11 +99,11 @@ if __name__ == '__main__':
                 output_list = output.detach().cpu().tolist()
                 cible_list = cible.cpu().tolist()
                 for out, cible in zip(output_list, cible_list):
-                    out_word = [dataset.int2symb[np.argmax(char)] for char in out if np.argmax(char) not in [0, 1, 2]]
+                    out_word = [dataset.int2symb[np.argmax(char)] for char in out if np.argmax(char) not in [0]]
                     out_str = ''.join(out_word)
 
                     cible_word = []
-                    cible_word = [dataset.int2symb[char] for char in cible if char not in [0, 1, 2]]
+                    cible_word = [dataset.int2symb[char] for char in cible if char not in [0]]
                     cible_str = ''.join(cible_word)
 
                     dist += edit_distance(out_str, cible_str)

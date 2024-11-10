@@ -22,8 +22,8 @@ class HandwrittenWords(Dataset):
             value[0] = list(value[0])
 
         # Dictionnaires de symboles vers entiers (Tokenization)
-        self.symb2int = {start_symbol: 0, stop_symbol: 1, pad_symbol: 2}
-        cpt_symb_fr = 3
+        self.symb2int = {pad_symbol: 0}
+        cpt_symb_fr = 1
 
         for i in range(len(self.data)):
             value = self.data[i][0]
@@ -58,12 +58,10 @@ class HandwrittenWords(Dataset):
         # Ajout du padding pour les targets TODO: idk comment faire encore pour les mouvements
         self.max_len = dict()
 
-        self.max_len['txt'] = max(len(value[0]) for value in self.data) + 2
+        self.max_len['txt'] = max(len(value[0]) for value in self.data)
 
         for value in self.data:
-            len_diff = self.max_len['txt'] - len(value[0]) -2
-            value[0].insert(0, self.start_symbol)
-            value[0].append(self.stop_symbol)
+            len_diff = self.max_len['txt'] - len(value[0])
             if len_diff != 0:
                 for i in range(len_diff): value[0].append(self.pad_symbol)
 
@@ -72,14 +70,10 @@ class HandwrittenWords(Dataset):
         for value in self.data:
             if len(value[1][1]) > self.max_len['coords']: self.max_len['coords'] = len(value[1][1])
 
-        self.max_len['coords'] += 2
-
         for value in self.data:
             len_lol = len(value[1][1])
             last_val = value[1][:, len_lol-1]
             len_diff = self.max_len['coords'] - len(value[1][1])
-            value[1] = np.insert(value[1],0, value[1][:,0], axis=1)
-            value[1] = np.insert(value[1], len(value[1][1]), last_val, axis=1)
             if len_diff != 0:
                 for i in range(len_diff): value[1] = np.insert(value[1], len(value[1][1]),last_val, axis=1)
 
@@ -95,6 +89,11 @@ class HandwrittenWords(Dataset):
         plt.xlabel("X")
         plt.ylabel("Y")
         plt.grid(True)
+
+        # Annotate each point with its index
+        for i, (x, y) in enumerate(zip(x_coords, y_coords)):
+            plt.text(x, y, f'{i}', fontsize=9, ha='right', color='red')  # Adjust fontsize and position as needed
+
         plt.show()
 
         self.dict_size = len(self.int2symb)
