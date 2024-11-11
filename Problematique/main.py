@@ -10,6 +10,7 @@ from torch.utils.data import Dataset, DataLoader
 from models import *
 from dataset import *
 from metrics import edit_distance
+import torch.nn.functional as F
 
 if __name__ == '__main__':
 
@@ -25,7 +26,7 @@ if __name__ == '__main__':
     # À compléter
     batch_size = 100             # Taille des lots
     n_epochs =  100               # Nombre d'iteration sur l'ensemble de donnees
-    lr = 0.02                 # Taux d'apprentissage pour l'optimizateur
+    lr = 0.01                 # Taux d'apprentissage pour l'optimizateur
 
     n_hidden = 19               # Nombre de neurones caches par couche
     n_layers = 1                # Nombre de de couches
@@ -88,9 +89,9 @@ if __name__ == '__main__':
                 coord, cible = data
                 coord = coord.to(device).float()
                 cible = cible.to(device)
-
+                cible_onehot = F.one_hot(cible, 27)
                 optimizer.zero_grad()  # Mise a zero du gradient
-                output, hidden, attn = model(coord)  # Passage avant
+                output, hidden, attn = model(coord, cible_onehot)  # Passage avant
                 test = output.view((-1, model.dict_size))
                 loss = criterion(output.contiguous().view((-1, model.dict_size)), cible.view(-1))
 
@@ -124,7 +125,7 @@ if __name__ == '__main__':
                 coord = coord.to(device).float()
                 cible = cible.to(device)
                 torch.no_grad()
-                output, hidden, attn = model(coord)  # Passage avant
+                output, hidden, attn = model(coord, None)  # Passage avant
                 test = output.view((-1, model.dict_size))
                 loss = criterion(output.contiguous().view((-1, model.dict_size)), cible.view(-1))
 

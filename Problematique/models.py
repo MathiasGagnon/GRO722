@@ -3,6 +3,8 @@
 # Hivers 2021
 
 import torch
+from requests.packages import target
+from tensorflow.python.ops.numpy_ops.np_math_ops import argmax
 from torch import nn
 import numpy as np
 import matplotlib.pyplot as plt
@@ -20,6 +22,7 @@ class trajectory2seq(nn.Module):
         self.maxlen = maxlen
         self.batch_size = batch_size
         self.dropout_rate = 0.2
+        self.forced_th = 0.7
 
         # Définition des couches du rnn
         self.text_embedding = nn.Embedding(self.dict_size, hidden_dim)
@@ -61,7 +64,7 @@ class trajectory2seq(nn.Module):
         return out, hidden
 
 
-    def decoder(self, encoder_outs, hidden):
+    def decoder(self, encoder_outs, hidden, target):
         batch_size = hidden.shape[1] # Taille de la batch
         vec_in = torch.zeros((batch_size, 1)).to(self.device).long()  # Vecteur d'entrée pour décodage
         vec_out = torch.zeros((batch_size, self.maxlen['txt'], 27)).to(self.device).float()  # Vecteur de sortie du décodage
@@ -69,6 +72,7 @@ class trajectory2seq(nn.Module):
         hidden = hidden[0,:,:].unsqueeze(0)
         
         for i in range(self.maxlen['txt']):
+            forced_teaching = torch.rand(1)
             embedded = self.text_embedding(vec_in)
 
             output, hidden = self.decoder_layer(embedded, hidden)
@@ -81,14 +85,17 @@ class trajectory2seq(nn.Module):
             argmax_output = output.argmax(dim=-1)
             vec_out[:, i,:] = output.squeeze(1)
             vec_in = argmax_output
+            if forced_teaching > self.forced_th and target is not None:
+                target_argmax = target[:, i, :].argmax(dim=1).unsqueeze(1)
+                vec_in = target_argmax
 
         return vec_out, hidden, attention_w
 
 
-    def forward(self, x):
+    def forward(self, x, target):
         # Passant avant
         out, h = self.encoder(x)
-        out, hidden, attn = self.decoder(out,h)
+        out, hidden, attn = self.decoder(out,h, target)
         return out, hidden, attn
 
 
