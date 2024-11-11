@@ -3,6 +3,7 @@
 # Hivers 2021
 
 import torch
+from keras.src.layers.preprocessing.benchmarks.feature_column_benchmark import StepTimingCallback
 from torch import nn
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
@@ -22,14 +23,14 @@ if __name__ == '__main__':
     n_workers = 0           # Nombre de threads pour chargement des données (mettre à 0 sur Windows)
 
     # À compléter
-    batch_size = 50             # Taille des lots
-    n_epochs = 15               # Nombre d'iteration sur l'ensemble de donnees
-    lr = 0.01                 # Taux d'apprentissage pour l'optimizateur
+    batch_size = 100             # Taille des lots
+    n_epochs =  100               # Nombre d'iteration sur l'ensemble de donnees
+    lr = 0.02                 # Taux d'apprentissage pour l'optimizateur
 
-    n_hidden = 6               # Nombre de neurones caches par couche
+    n_hidden = 19               # Nombre de neurones caches par couche
     n_layers = 1                # Nombre de de couches
 
-    train_val_split = .7        # Ratio des echantillions pour l'entrainement
+    train_val_split = .8        # Ratio des echantillions pour l'entrainement
 
     # ---------------- Fin Paramètres et hyperparamètres ----------------#
 
@@ -68,12 +69,14 @@ if __name__ == '__main__':
     if trainning:
 
         # Fonction de coût et optimizateur
-        criterion = nn.CrossEntropyLoss(ignore_index=2)  # ignorer les symboles <pad>
+        criterion = nn.CrossEntropyLoss()  # ignorer les symboles <pad>
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
         if learning_curves:
             train_dist =[] # Historique des distances
             train_loss=[] # Historique des coûts
+            val_dist =[] # Historique des distances
+            val_loss=[] # Historique des coûts
             fig, ax = plt.subplots(1) # Initialisation figure
 
         for epoch in range(1, n_epochs + 1):
@@ -107,27 +110,56 @@ if __name__ == '__main__':
                     cible_str = ''.join(cible_word)
 
                     dist += edit_distance(out_str, cible_str)
-                # Affichage pendant l'entraînement
-                # print(
-                #     'Train - Epoch: {}/{} [{}/{} ({:.0f}%)] Average Loss: {:.6f} Average Edit Distance: {:.6f}'.format(
-                #         epoch, n_epochs, batch_idx * batch_size, len(dataload_train.dataset),
-                #                          100. * batch_idx * batch_size / len(dataload_train.dataset),
-                #                          running_loss_train / (batch_idx + 1),
-                #                          dist / len(dataload_train)), end='\r')
-
             print('Train - Epoch: {}/{} [{}/{} ({:.0f}%)] Average Loss: {:.6f} Average Edit Distance: {:.6f}'.format(
-                epoch, n_epochs, (batch_idx + 1) * batch_size, len(dataload_train.dataset),
-                                 100. * (batch_idx + 1) * batch_size / len(dataload_train.dataset),
-                                 running_loss_train / (batch_idx + 1),
-                                 dist / len(dataload_train.dataset)), end='\r')
+                    epoch, n_epochs, (batch_idx + 1) * batch_size, len(dataload_train.dataset),
+                                         100. * (batch_idx + 1) * batch_size / len(dataload_train.dataset),
+                                         running_loss_train / (batch_idx + 1),
+                                         dist / len(dataload_train.dataset)))
+
+            # Valid
+            running_loss_val = 0
+            dist_val = 0
+            for batch_idx, data in enumerate(dataload_val):
+                coord, cible = data
+                coord = coord.to(device).float()
+                cible = cible.to(device)
+                torch.no_grad()
+                output, hidden, attn = model(coord)  # Passage avant
+                test = output.view((-1, model.dict_size))
+                loss = criterion(output.contiguous().view((-1, model.dict_size)), cible.view(-1))
+
+                running_loss_val += loss.item()
+
+                # calcul de la distance d'édition
+                output_list = output.detach().cpu().tolist()
+                cible_list = cible.cpu().tolist()
+                for out, cible in zip(output_list, cible_list):
+                    out_word = [dataset.int2symb[np.argmax(char)] for char in out if np.argmax(char) not in [0]]
+                    out_str = ''.join(out_word)
+
+                    cible_word = []
+                    cible_word = [dataset.int2symb[char] for char in cible if char not in [0]]
+                    cible_str = ''.join(cible_word)
+
+                    dist_val += edit_distance(out_str, cible_str)
+
+            print('Val - Epoch: {}/{} [{}/{} ({:.0f}%)] Average Loss: {:.6f} Average Edit Distance: {:.6f}'.format(
+                epoch, n_epochs, (batch_idx + 1) * batch_size, len(dataload_val.dataset),
+                                 100. * (batch_idx + 1) * batch_size / len(dataload_val.dataset),
+                                 running_loss_val / (batch_idx + 1),
+                                 dist_val / len(dataload_val.dataset)), end='\n')
             print('\n')
             # Affichage graphique
             if learning_curves:
-                train_loss.append(running_loss_train / len(dataload_train))
+                train_loss.append(running_loss_train / len(dataload_train.dataset))
                 train_dist.append(dist / len(dataload_train.dataset))
+                val_loss.append(running_loss_val / len(dataload_val.dataset))
+                val_dist.append(dist_val / len(dataload_val.dataset))
                 ax.cla()
                 ax.plot(train_loss, label='training loss')
                 ax.plot(train_dist, label='training distance')
+                ax.plot(val_loss, label='validation loss')
+                ax.plot(val_dist, label='validation distance')
                 ax.legend()
                 plt.draw()
                 plt.pause(0.01)

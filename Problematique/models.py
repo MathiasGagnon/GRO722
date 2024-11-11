@@ -19,21 +19,24 @@ class trajectory2seq(nn.Module):
         self.dict_size = dict_size
         self.maxlen = maxlen
         self.batch_size = batch_size
+        self.dropout_rate = 0.2
 
         # Définition des couches du rnn
         self.text_embedding = nn.Embedding(self.dict_size, hidden_dim)
-        #self.coords_embedding = nn.Linear(2)
-        self.encoder_layer = nn.GRU(input_size=3, hidden_size=hidden_dim, num_layers=n_layers, batch_first=True, bidirectional=False)
-        self.decoder_layer = nn.GRU(hidden_dim, hidden_dim, n_layers, batch_first=True)
+        self.encoder_layer = nn.GRU(input_size=hidden_dim, hidden_size=hidden_dim, num_layers=n_layers, batch_first=True, bidirectional=True, dropout=self.dropout_rate)
+        self.decoder_layer = nn.GRU(hidden_dim, hidden_dim, n_layers, batch_first=True, dropout=self.dropout_rate)
+
+        self.premier_fc = nn.Linear(2, hidden_dim)
 
         # Définition de la couche dense pour la sortie
         self.attention_fc = nn.Sequential(
             nn.Linear(2*hidden_dim, hidden_dim),
-            nn.ReLU()
         )
         self.fc = nn.Sequential(
             nn.Linear(hidden_dim, self.dict_size),
         )
+
+        self.bi_fc = nn.Sequential(nn.Linear(2*hidden_dim, hidden_dim))
 
         # Couche attention
         self.similarity = nn.CosineSimilarity(dim=2)
@@ -41,15 +44,20 @@ class trajectory2seq(nn.Module):
 
         self.to(device)
 
+        self.print_num_params()
+
+    def print_num_params(self):
+        total_params = sum(p.numel() for p in self.parameters())
+        print(f"Number of parameters: {total_params}")
+
     def encoder(self, x):
         # Encodeur
         permutted = x.permute(0, 2, 1)
 
-        positions = torch.arange(0, 457).unsqueeze(0).unsqueeze(2).expand(50,457,1)
+        input = self.premier_fc(permutted)
 
-        permutted_with_position = torch.cat((permutted, positions), dim=-1)
-
-        out, hidden = self.encoder_layer(permutted_with_position)
+        out, hidden = self.encoder_layer(input)
+        out = self.bi_fc(out)
         return out, hidden
 
 
@@ -58,15 +66,16 @@ class trajectory2seq(nn.Module):
         vec_in = torch.zeros((batch_size, 1)).to(self.device).long()  # Vecteur d'entrée pour décodage
         vec_out = torch.zeros((batch_size, self.maxlen['txt'], 27)).to(self.device).float()  # Vecteur de sortie du décodage
         attention_w = torch.zeros((batch_size, self.maxlen['coords'], self.maxlen['txt'])).to(self.device)
+        hidden = hidden[0,:,:].unsqueeze(0)
         
         for i in range(self.maxlen['txt']):
             embedded = self.text_embedding(vec_in)
+
             output, hidden = self.decoder_layer(embedded, hidden)
-
             a, w = self.attention(encoder_outs, output)
-            attention_w[:, :, i] = w.squeeze(2)
+            attention_w[:, :, i] = w
 
-            combined = torch.cat((output, a.permute(0,2,1)), dim=-1)
+            combined = torch.cat((output, a), dim=-1)
             output = self.attention_fc(combined)
             output = self.fc(output)
             argmax_output = output.argmax(dim=-1)
@@ -84,9 +93,7 @@ class trajectory2seq(nn.Module):
 
 
     def attention(self, v, q):
-        q = q.permute(0,2,1)
-        attn_score = torch.bmm(v, q)
+        attn_score = self.similarity(v, q)
         w = self.softmax(attn_score)
-        v = v.permute(0,2,1)
-        a = torch.bmm(v, w)
+        a = torch.bmm(w.unsqueeze(1), v)
         return a, w
