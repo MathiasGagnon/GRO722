@@ -182,11 +182,9 @@ if __name__ == '__main__':
         dataset.int2symb = model.int2symb
 
         for i in range(10):
-            # Extract a sequence from the validation dataset
             coord_seq, target_seq = dataset[np.random.randint(0, len(dataset))]
             coord_seq = coord_seq[None, :].to(device).float()  # Shape [1, 2, *]
 
-            # Evaluate the sequence
             output, hidden, attn = model(coord_seq)
             out = torch.argmax(output, dim=2).detach().cpu()[0, :].tolist()
 
@@ -200,33 +198,25 @@ if __name__ == '__main__':
             print('Output: ', ' '.join(out_seq))
             print('')
 
-            # Attention matrix for this sequence
-            attn = attn.detach().cpu()[0, :, :]  # Shape [input_length, output_length]
+            attn = attn.detach().cpu()[0, :, :]
 
-            # Plotting coordinates
             x_coords, y_coords = in_seq[0], in_seq[1]
             num_letters = len(out_seq)
 
-            # Normalize attention for better visual scaling
             attn_normalized = attn / attn.max()
 
-            # Loop through each predicted letter and its attention weights
             for idx, letter in enumerate(out_seq):
-                # Set color intensity based on attention values
                 colors = attn_normalized[:, idx].numpy()
 
-                # Create a figure for each letter
                 plt.figure(figsize=(6, 6))
 
-                # Scatter plot with varying intensity based on attention weights, using a blue colormap
                 scatter = plt.scatter(x_coords, y_coords, c=colors, cmap="Blues", s=50, edgecolor='black')
 
                 # Labels and title
-                plt.title(f"Attention-Weighted Coordinates for Letter: '{letter}'")
+                plt.title(f"Lettre: '{letter}'")
                 plt.xlabel("X Coordinate")
                 plt.ylabel("Y Coordinate")
 
-                # Add a colorbar to show intensity levels
                 plt.colorbar(scatter, label='Attention Intensity')
 
                 plt.show()
