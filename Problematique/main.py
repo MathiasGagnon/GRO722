@@ -26,7 +26,7 @@ if __name__ == '__main__':
 
     # À compléter
     batch_size = 50           # Taille des lots
-    n_epochs =  130           # Nombre d'iteration sur l'ensemble de donnees
+    n_epochs =  1           # Nombre d'iteration sur l'ensemble de donnees
     lr = 0.01                 # Taux d'apprentissage pour l'optimizateur
 
     n_hidden = 19               # Nombre de neurones caches par couche
@@ -180,13 +180,15 @@ if __name__ == '__main__':
             # Enregistrer les poids
             if val_loss[-1] < best_val_loss:
                 best_val_loss = val_loss[-1]
-                torch.save(model.state_dict(), 'best_model.pt')
+                torch.save(model.state_dict(), 'best_model_1.pt')
                 print(f"Best model saved with validation loss: {best_val_loss}")
 
             # Terminer l'affichage d'entraînement
         if learning_curves:
             all_true = []
             all_pred = []
+
+            model.load_state_dict(torch.load('best_model.pt'))
 
             with torch.no_grad():
                 for batch_idx, data in enumerate(dataload_val):
@@ -215,7 +217,7 @@ if __name__ == '__main__':
         # Évaluation
 
         # Chargement des poids
-        model = torch.load('best_model.pt')
+        model.load_state_dict(torch.load('best_model.pt'))
         dataset.symb2int = model.symb2int
         dataset.int2symb = model.int2symb
 
