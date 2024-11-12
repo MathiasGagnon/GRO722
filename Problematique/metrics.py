@@ -3,10 +3,8 @@
 # Hivers 2021
 import torch
 import numpy as np
-import matplotlib as plt
+import matplotlib.pyplot as plt
 import seaborn as sns
-#from sklearn.metrics import confusion_matrix as conf_matrix
-# import sklearn.metrics as metrics
 
 def edit_distance(a,b):
     # Calcul de la distance d'édition
@@ -19,22 +17,22 @@ def edit_distance(a,b):
     return dp[-1]
     pass
 
-# def confusion_matrix(true, pred, ignore=[]):
-#     # Calcul de la matrice de confusion
-#     # Convert tensors to numpy arrays if needed
-#     true_np = true.numpy() if isinstance(true, torch.Tensor) else true
-#     pred_np = pred.numpy() if isinstance(pred, torch.Tensor) else pred
-#
-#     # Generate the confusion matrix
-#     cm = conf_matrix(true_np, pred_np)
-#
-#     # Plot the confusion matrix
-#     plt.figure(figsize=(8, 6))
-#     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
-#                 xticklabels=np.unique(true_np),
-#                 yticklabels=np.unique(true_np))
-#
-#     plt.xlabel('Predicted')
-#     plt.ylabel('True')
-#     plt.title('Confusion Matrix')
-#     plt.show()
+def confusion_matrix(true, pred, labels=None):
+    true_np = true.numpy() if isinstance(true, torch.Tensor) else np.array(true)
+    pred_np = pred.numpy() if isinstance(pred, torch.Tensor) else np.array(pred)
+    
+    classes = labels if labels is not None else np.unique(true_np)
+    num_classes = len(classes)
+    
+    cm = np.zeros((num_classes, num_classes), dtype=int)
+    
+    for t_word, p_word in zip(true_np, pred_np):
+        for t_char, p_char in zip(t_word, p_word):
+            cm[t_char, p_char] += 1
+    
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=classes, yticklabels=classes)
+    plt.xlabel('Predicted')
+    plt.ylabel('True')
+    plt.title('Confusion Matrix')
+    plt.show()

@@ -1,31 +1,32 @@
 # GRO722 problématique
 # Auteur: Jean-Samuel Lauzon et  Jonathan Vincent
 # Hivers 2021
-
+import os
 import torch
-from keras.src.layers.preprocessing.benchmarks.feature_column_benchmark import StepTimingCallback
 from torch import nn
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from models import *
 from dataset import *
-from metrics import edit_distance
+from metrics import edit_distance, confusion_matrix
 import torch.nn.functional as F
+
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 if __name__ == '__main__':
 
     # ---------------- Paramètres et hyperparamètres ----------------#
     force_cpu = False           # Forcer a utiliser le cpu?
     trainning = True           # Entrainement?
-    test = False                # Test?
+    _test = False                # Test?
     learning_curves = True     # Affichage des courbes d'entrainement?
     gen_test_images = True     # Génération images test?
     seed = 1                # Pour répétabilité
     n_workers = 0           # Nombre de threads pour chargement des données (mettre à 0 sur Windows)
 
     # À compléter
-    batch_size = 100             # Taille des lots
-    n_epochs =  100               # Nombre d'iteration sur l'ensemble de donnees
+    batch_size = 50           # Taille des lots
+    n_epochs =  130           # Nombre d'iteration sur l'ensemble de donnees
     lr = 0.01                 # Taux d'apprentissage pour l'optimizateur
 
     n_hidden = 19               # Nombre de neurones caches par couche
@@ -44,7 +45,7 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() and not force_cpu else "cpu")
 
     # Instanciation de l'ensemble de données
-    dataset = HandwrittenWords('data_trainval.p')
+    dataset = HandwrittenWords('Problematique/data_trainval.p')
     
     # Séparation de l'ensemble de données (entraînement et validation)
     n_train_samp = int(len(dataset) * train_val_split)
@@ -55,6 +56,8 @@ if __name__ == '__main__':
     # Instanciation des dataloaders
     dataload_train = DataLoader(dataset_train, batch_size=batch_size, shuffle=True, num_workers=n_workers)
     dataload_val = DataLoader(dataset_val, batch_size=batch_size, shuffle=False, num_workers=n_workers)
+
+    fig, (ax_loss, ax_dist) = plt.subplots(1, 2, figsize=(12, 5))
 
 
     # Instanciation du model
@@ -78,7 +81,6 @@ if __name__ == '__main__':
             train_loss=[] # Historique des coûts
             val_dist =[] # Historique des distances
             val_loss=[] # Historique des coûts
-            fig, ax = plt.subplots(1) # Initialisation figure
 
         for epoch in range(1, n_epochs + 1):
             # Entraînement
@@ -116,6 +118,8 @@ if __name__ == '__main__':
                                          100. * (batch_idx + 1) * batch_size / len(dataload_train.dataset),
                                          running_loss_train / (batch_idx + 1),
                                          dist / len(dataload_train.dataset)))
+            train_loss.append(running_loss_train / (len(dataload_train.dataset)/(batch_size)))
+            train_dist.append(dist / len(dataload_train.dataset))
 
             # Valid
             running_loss_val = 0
@@ -150,34 +154,68 @@ if __name__ == '__main__':
                                  running_loss_val / (batch_idx + 1),
                                  dist_val / len(dataload_val.dataset)), end='\n')
             print('\n')
-            # Affichage graphique
+            val_loss.append(running_loss_val / (len(dataload_val.dataset)/(batch_size)))
+            val_dist.append(dist_val / len(dataload_val.dataset))
+
             if learning_curves:
-                train_loss.append(running_loss_train / len(dataload_train.dataset))
-                train_dist.append(dist / len(dataload_train.dataset))
-                val_loss.append(running_loss_val / len(dataload_val.dataset))
-                val_dist.append(dist_val / len(dataload_val.dataset))
-                ax.cla()
-                ax.plot(train_loss, label='training loss')
-                ax.plot(train_dist, label='training distance')
-                ax.plot(val_loss, label='validation loss')
-                ax.plot(val_dist, label='validation distance')
-                ax.legend()
+                ax_loss.cla()
+                ax_loss.plot(train_loss, label='Training Loss', color='blue')
+                ax_loss.plot(val_loss, label='Validation Loss', color='orange')
+                ax_loss.set_title("Loss")
+                ax_loss.set_xlabel("Epochs")
+                ax_loss.set_ylabel("Loss")
+                ax_loss.legend()
+
+                ax_dist.cla()
+                ax_dist.plot(train_dist, label='Training Distance', color='green')
+                ax_dist.plot(val_dist, label='Validation Distance', color='red')
+                ax_dist.set_title("Distance")
+                ax_dist.set_xlabel("Epochs")
+                ax_dist.set_ylabel("Distance")
+                ax_dist.legend()
+
                 plt.draw()
                 plt.pause(0.01)
 
             # Enregistrer les poids
-            torch.save(model, 'model.pt')
+            if val_loss[-1] < best_val_loss:
+                best_val_loss = val_loss[-1]
+                torch.save(model.state_dict(), 'best_model.pt')
+                print(f"Best model saved with validation loss: {best_val_loss}")
 
             # Terminer l'affichage d'entraînement
         if learning_curves:
-            plt.show()
-            plt.close('all')
+            all_true = []
+            all_pred = []
 
-    if 1:
+            with torch.no_grad():
+                for batch_idx, data in enumerate(dataload_val):
+                    coord, cible = data
+                    coord = coord.to(device).float()
+                    cible = cible.to(device)
+                    
+                    # Forward pass
+                    output, hidden, attn = model(coord, None)
+                    
+                    # Get predictions
+                    preds = output.argmax(dim=-1)
+                    
+                    # Collect true and predicted labels
+                    all_true.extend(cible.cpu().numpy())
+                    all_pred.extend(preds.cpu().numpy())
+
+            # Convert collected labels to numpy arrays
+            all_true = np.array(all_true)
+            all_pred = np.array(all_pred)
+
+            # Generate and plot the confusion matrix
+            confusion_matrix(all_true, all_pred, dataset.int2symb)
+
+    if _test:
         # Évaluation
 
         # Chargement des poids
-        model = torch.load('model.pt')
+        model = torch.load('best_model.pt')
         dataset.symb2int = model.symb2int
         dataset.int2symb = model.int2symb
 

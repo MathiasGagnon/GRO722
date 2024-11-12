@@ -3,11 +3,7 @@
 # Hivers 2021
 
 import torch
-from requests.packages import target
-from tensorflow.python.ops.numpy_ops.np_math_ops import argmax
 from torch import nn
-import numpy as np
-import matplotlib.pyplot as plt
 
 class trajectory2seq(nn.Module):
     def __init__(self, hidden_dim, n_layers, int2symb, symb2int, dict_size, device, maxlen, batch_size):

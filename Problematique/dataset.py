@@ -8,7 +8,7 @@ import pickle
 class HandwrittenWords(Dataset):
     """Ensemble de donnees de mots ecrits a la main."""
 
-    def __init__(self, filename):
+    def __init__(self, filename, show=False):
         # Lecture du text
         self.pad_symbol     = pad_symbol = '#'
 
@@ -32,23 +32,6 @@ class HandwrittenWords(Dataset):
 
         self.int2symb = {v: k for k, v in self.symb2int.items()}
 
-        # max_x, min_x = float('-inf'), float('inf')
-        # max_y, min_y = float('-inf'), float('inf')
-        #
-        # for value in self.data:
-        #     x_coords, y_coords = value[1][0], value[1][1]
-        #     max_x = max(max_x, max(x_coords))
-        #     min_x = min(min_x, min(x_coords))
-        #     max_y = max(max_y, max(y_coords))
-        #     min_y = min(min_y, min(y_coords))
-        #
-        # for value in self.data:
-        #     x_coords, y_coords = value[1][0], value[1][1]
-        #     normalized_x = [(x - min_x) / (max_x - min_x) for x in x_coords]
-        #     normalized_y = [(y - min_y) / (max_y - min_y) for y in y_coords]
-        #     value[1][0] = normalized_x
-        #     value[1][1] = normalized_y
-
         for value in self.data:
             x_coords, y_coords = value[1][0], value[1][1]
 
@@ -60,6 +43,27 @@ class HandwrittenWords(Dataset):
 
             value[1][0] = diff_x
             value[1][1] = diff_y
+
+        max_x, min_x = float('-inf'), float('inf')
+        max_y, min_y = float('-inf'), float('inf')
+
+        all_x, all_y = [], []
+        
+        for value in self.data:
+            all_x.extend(value[1][0])
+            all_y.extend(value[1][1])
+
+        max_x, min_x = max(all_x), min(all_x)
+        max_y, min_y = max(all_y), min(all_y)
+
+        mean_x, mean_y = np.mean(all_x), np.mean(all_y)
+
+        for value in self.data:
+            x_coords, y_coords = value[1][0], value[1][1]
+            normalized_mean_x = [(x - mean_x) / (max_x - min_x) for x in x_coords]
+            normalized_mean_y = [(y - mean_y) / (max_y - min_y) for y in y_coords]
+            value[1][0] = normalized_mean_x
+            value[1][1] = normalized_mean_y
 
         # Ajout du padding pour les targets TODO: idk comment faire encore pour les mouvements
         self.max_len = dict()
@@ -89,18 +93,19 @@ class HandwrittenWords(Dataset):
         y_coords = first_coords[1]
 
         # Plot the coordinates
-        plt.figure(figsize=(8, 6))
-        plt.scatter(x_coords, y_coords, color='blue', marker='o')
-        plt.title(self.data[20][0])
-        plt.xlabel("X")
-        plt.ylabel("Y")
-        plt.grid(True)
+        if show:
+            plt.figure(figsize=(8, 6))
+            plt.scatter(x_coords, y_coords, color='blue', marker='o')
+            plt.title(self.data[20][0])
+            plt.xlabel("X")
+            plt.ylabel("Y")
+            plt.grid(True)
 
-        # Annotate each point with its index
-        for i, (x, y) in enumerate(zip(x_coords, y_coords)):
-            plt.text(x, y, f'{i}', fontsize=9, ha='right', color='red')  # Adjust fontsize and position as needed
+            # Annotate each point with its index
+            for i, (x, y) in enumerate(zip(x_coords, y_coords)):
+                plt.text(x, y, f'{i}', fontsize=9, ha='right', color='red')  # Adjust fontsize and position as needed
 
-        plt.show()
+            plt.show()
 
         self.dict_size = len(self.int2symb)
 
