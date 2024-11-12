@@ -4,6 +4,7 @@ from torch.utils.data import Dataset
 import matplotlib.pyplot as plt
 import re
 import pickle
+import copy
 
 class HandwrittenWords(Dataset):
     """Ensemble de donnees de mots ecrits a la main."""
@@ -31,6 +32,8 @@ class HandwrittenWords(Dataset):
                     cpt_symb_fr += 1
 
         self.int2symb = {v: k for k, v in self.symb2int.items()}
+
+        self.original_coords = copy.deepcopy(self.data)
 
         for value in self.data:
             x_coords, y_coords = value[1][0], value[1][1]
@@ -87,6 +90,13 @@ class HandwrittenWords(Dataset):
             if len_diff != 0:
                 for i in range(len_diff): value[1] = np.insert(value[1], len(value[1][1]),0, axis=1)
 
+        for value in self.original_coords:
+            len_lol = len(value[1][1])
+            last_val = value[1][:, len_lol-1]
+            len_diff = self.max_len['coords'] - len(value[1][1])
+            if len_diff != 0:
+                for i in range(len_diff): value[1] = np.insert(value[1], len(value[1][1]),0, axis=1)
+
         # Extract the first set of coordinates
         first_coords = self.data[20][1]  # Assumes self.data[0][1] contains [x_coords, y_coords]
         x_coords = first_coords[0]
@@ -115,10 +125,10 @@ class HandwrittenWords(Dataset):
     def __getitem__(self, idx):
         target_seq = self.data[idx][0]
         target_seq = [self.symb2int[i] for i in target_seq]
-        return torch.tensor(self.data[idx][1]), torch.tensor(target_seq)
+        return torch.tensor(self.data[idx][1]), torch.tensor(target_seq), torch.tensor(self.original_coords[idx][1])
 
     def visualisation(self, idx):
-        coord_seq, target_seq = [i.numpy() for i in self[idx]]
+        coord_seq, target_seq,_ = [i.numpy() for i in self[idx]]
         target_seq = [self.int2symb[i] for i in target_seq]
         print('Input: ', ' ' + str(coord_seq))
         print('Cible: ', ' '.join(target_seq))

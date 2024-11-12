@@ -10,6 +10,7 @@ from models import *
 from dataset import *
 from metrics import edit_distance, confusion_matrix
 import torch.nn.functional as F
+import matplotlib.pyplot as plt
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
@@ -17,8 +18,8 @@ if __name__ == '__main__':
 
     # ---------------- Paramètres et hyperparamètres ----------------#
     force_cpu = False           # Forcer a utiliser le cpu?
-    trainning = True           # Entrainement?
-    _test = False                # Test?
+    training = False           # Entrainement?
+    _test = True                # Test?
     learning_curves = True     # Affichage des courbes d'entrainement?
     gen_test_images = True     # Génération images test?
     seed = 1                # Pour répétabilité
@@ -45,7 +46,7 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() and not force_cpu else "cpu")
 
     # Instanciation de l'ensemble de données
-    dataset = HandwrittenWords('Problematique/data_trainval.p')
+    dataset = HandwrittenWords('data_trainval.p')
     
     # Séparation de l'ensemble de données (entraînement et validation)
     n_train_samp = int(len(dataset) * train_val_split)
@@ -70,7 +71,7 @@ if __name__ == '__main__':
     # Initialisation des variables
     best_val_loss = np.inf # pour sauvegarder le meilleur model
 
-    if trainning:
+    if training:
 
         # Fonction de coût et optimizateur
         criterion = nn.CrossEntropyLoss()  # ignorer les symboles <pad>
@@ -88,7 +89,7 @@ if __name__ == '__main__':
             dist = 0
             for batch_idx, data in enumerate(dataload_train):
                 # Formatage des données
-                coord, cible = data
+                coord, cible, original_coords = data
                 coord = coord.to(device).float()
                 cible = cible.to(device)
                 cible_onehot = F.one_hot(cible, 27)
@@ -217,19 +218,19 @@ if __name__ == '__main__':
         # Évaluation
 
         # Chargement des poids
-        model.load_state_dict(torch.load('best_model.pt'))
+        model.load_state_dict(torch.load('best_model.pt', map_location=torch.device('cpu')))
         dataset.symb2int = model.symb2int
         dataset.int2symb = model.int2symb
 
         for i in range(10):
-            coord_seq, target_seq = dataset[np.random.randint(0, len(dataset))]
+            coord_seq, target_seq, original_coords = dataset[np.random.randint(0, len(dataset))]
             coord_seq = coord_seq[None, :].to(device).float()  # Shape [1, 2, *]
 
-            output, hidden, attn = model(coord_seq)
+            output, hidden, attn = model(coord_seq, None)
             out = torch.argmax(output, dim=2).detach().cpu()[0, :].tolist()
 
             # Convert sequences to human-readable format
-            in_seq = coord_seq.squeeze(0).detach().cpu().numpy()  # Shape [2, *]
+            in_seq = original_coords.squeeze(0).detach().cpu().numpy()  # Shape [2, *]
             target = [model.int2symb[i] for i in target_seq.detach().cpu().tolist()]
             out_seq = [model.int2symb[i] for i in out]
 
@@ -253,9 +254,7 @@ if __name__ == '__main__':
                 scatter = plt.scatter(x_coords, y_coords, c=colors, cmap="Blues", s=50, edgecolor='black')
 
                 # Labels and title
-                plt.title(f"Lettre: '{letter}'")
-                plt.xlabel("X Coordinate")
-                plt.ylabel("Y Coordinate")
+                plt.title(f"Lettre: '{letter}', Cible:'{out_seq}'")
 
                 plt.colorbar(scatter, label='Attention Intensity')
 
