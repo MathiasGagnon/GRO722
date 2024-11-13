@@ -54,13 +54,15 @@ if __name__ == '__main__':
 
     # À compléter
     batch_size = 50           # Taille des lots
-    n_epochs =  1           # Nombre d'iteration sur l'ensemble de donnees
-    lr = 0.01                 # Taux d'apprentissage pour l'optimizateur
+    n_epochs =  200           # Nombre d'iteration sur l'ensemble de donnees
+    lr = 0.015                 # Taux d'apprentissage pour l'optimizateur
 
     n_hidden = 19               # Nombre de neurones caches par couche
     n_layers = 1                # Nombre de de couches
 
     train_val_split = .8        # Ratio des echantillions pour l'entrainement
+    save_path = 'oracle.pt'
+    load_path = 'best_model.pt'
 
     # ---------------- Fin Paramètres et hyperparamètres ----------------#
 
@@ -74,24 +76,19 @@ if __name__ == '__main__':
 
     # Instanciation de l'ensemble de données
     dataset = HandwrittenWords('Problematique/data_trainval.p')
-    dataset_test = HandwrittenWords('Problematique/data_test.p', dataset.max_len)
-
-    dataset_test.int2symb = dataset.int2symb
-    dataset_test.symb2int = dataset.symb2int     
-    
+        
     # Séparation de l'ensemble de données (entraînement et validation)
     n_train_samp = int(len(dataset) * train_val_split)
     n_val_samp = len(dataset) - n_train_samp
     dataset_train, dataset_val = torch.utils.data.random_split(dataset, [n_train_samp, n_val_samp])
-   
+    
 
     # Instanciation des dataloaders
     dataload_train = DataLoader(dataset_train, batch_size=batch_size, shuffle=True, num_workers=n_workers)
-    dataload_test = DataLoader(dataset_test, batch_size=batch_size, shuffle=True, num_workers=n_workers)
     dataload_val = DataLoader(dataset_val, batch_size=batch_size, shuffle=False, num_workers=n_workers)
 
-    fig, (ax_loss, ax_dist) = plt.subplots(1, 2, figsize=(12, 5))
-
+    dataset_test = HandwrittenWords('Problematique/data_test.p', dataset.max_len, dataset.int2symb, dataset.symb2int)
+    dataload_test = DataLoader(dataset_test, batch_size=batch_size, shuffle=True, num_workers=n_workers)
 
     # Instanciation du model
     model = trajectory2seq(hidden_dim=n_hidden,
@@ -99,11 +96,13 @@ if __name__ == '__main__':
         int2symb=dataset.int2symb, dict_size=dataset.dict_size, maxlen=dataset.max_len,batch_size = batch_size)
     model = model.to(device)
 
-
-    # Initialisation des variables
-    best_val_loss = np.inf # pour sauvegarder le meilleur model
+    # model.load_state_dict(torch.load(load_path))
 
     if training:
+        fig, (ax_loss, ax_dist) = plt.subplots(1, 2, figsize=(12, 5))
+
+        # Initialisation des variables
+        best_val_loss = np.inf # pour sauvegarder le meilleur model
 
         # Fonction de coût et optimizateur
         criterion = nn.CrossEntropyLoss()  # ignorer les symboles <pad>
@@ -119,26 +118,24 @@ if __name__ == '__main__':
             # Entraînement
             running_loss_train = 0
             dist_train = 0
-            dataset_list = [dataload_test, dataload_train]
-            for sub_dataset in dataset_list:
-                for batch_idx, data in enumerate(sub_dataset):
-                    # Formatage des données
-                    coord, cible, _ = data
-                    coord = coord.to(device).float()
-                    cible = cible.to(device)
-                    cible_onehot = F.one_hot(cible, 27)
-                    optimizer.zero_grad()  # Mise a zero du gradient
-                    output, hidden, attn = model(coord, cible_onehot)  # Passage avant
-                    loss = criterion(output.contiguous().view((-1, model.dict_size)), cible.view(-1))
+            for batch_idx, data in enumerate(dataload_train):
+                # Formatage des données
+                coord, cible, _ = data
+                coord = coord.to(device).float()
+                cible = cible.to(device)
+                cible_onehot = F.one_hot(cible, 27)
+                optimizer.zero_grad()  # Mise a zero du gradient
+                output, hidden, attn = model(coord, cible_onehot)  # Passage avant
+                loss = criterion(output.contiguous().view((-1, model.dict_size)), cible.view(-1))
 
-                    loss.backward()  # calcul du gradient
-                    optimizer.step()  # Mise a jour des poids
-                    running_loss_train += loss.item()
+                loss.backward()  # calcul du gradient
+                optimizer.step()  # Mise a jour des poids
+                running_loss_train += loss.item()
 
-                    # calcul de la distance d'édition
-                    dist_train = calculate_edit_distance(output, cible, dataset, dist_train)
+                # calcul de la distance d'édition
+                dist_train = calculate_edit_distance(output, cible, dataset, dist_train)
 
-            log_progress(epoch, n_epochs, batch_idx, sub_dataset, running_loss_train, dist_train, train_loss, train_dist, 'Train')
+            log_progress(epoch, n_epochs, batch_idx, dataload_train, running_loss_train, dist_train, train_loss, train_dist, 'Train')
 
             # Valid
             running_loss_val = 0
@@ -182,7 +179,7 @@ if __name__ == '__main__':
             # Enregistrer les poids
             if val_loss[-1] < best_val_loss:
                 best_val_loss = val_loss[-1]
-                torch.save(model.state_dict(), 'oracle.pt')
+                torch.save(model.state_dict(), save_path)
                 print(f"Best model saved with validation loss: {best_val_loss}")
 
             # Terminer l'affichage d'entraînement
@@ -190,7 +187,7 @@ if __name__ == '__main__':
             all_true = []
             all_pred = []
 
-            model.load_state_dict(torch.load('oracle.pt'))
+            model.load_state_dict(torch.load(save_path))
 
             with torch.no_grad():
                 for batch_idx, data in enumerate(dataload_val):
@@ -217,10 +214,11 @@ if __name__ == '__main__':
 
     if _test:
         # Évaluation
-        dataset_test = HandwrittenWords('Problematique/data_test.p', dataset.max_len)
+        model.load_state_dict(torch.load(save_path))
+        
+        dataset_test = HandwrittenWords('Problematique/data_test.p', model.maxlen, model.int2symb, model.symb2int)
         dataload_test = DataLoader(dataset_test, batch_size=batch_size, shuffle=True, num_workers=n_workers)
         # Chargement des poids
-        model.load_state_dict(torch.load('best_model_1.pt'))
 
         criterion = nn.CrossEntropyLoss()
         running_loss_test = 0
@@ -239,7 +237,7 @@ if __name__ == '__main__':
                     running_loss_test += loss.item()
 
                     # calcul de la distance d'édition
-                    dist_test = calculate_edit_distance(output, cible, dataset, dist_test)
+                    dist_test = calculate_edit_distance(output, cible, dataset_test, dist_test)
 
                 print(f'Test - Average Loss: {running_loss_test / (batch_idx + 1)} Average Edit Distance: {dist_test / len(dataload_test.dataset)} \n')
      

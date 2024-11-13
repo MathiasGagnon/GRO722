@@ -9,7 +9,7 @@ import copy
 class HandwrittenWords(Dataset):
     """Ensemble de donnees de mots ecrits a la main."""
 
-    def __init__(self, filename, previous_max_len=None, show=False):
+    def __init__(self, filename, previous_max_len=None, previous_int2symb=None, previous_symb2int=None, show=False):
         # Lecture du text
         self.pad_symbol     = pad_symbol = '#'
 
@@ -21,17 +21,23 @@ class HandwrittenWords(Dataset):
             value[0] = list(value[0])
 
         # Dictionnaires de symboles vers entiers (Tokenization)
-        self.symb2int = {pad_symbol: 0}
-        cpt_symb_fr = 1
+        if previous_symb2int is None:
+            self.symb2int = {pad_symbol: 0}
+            cpt_symb_fr = 1
 
-        for i in range(len(self.data)):
-            value = self.data[i][0]
-            for symb in value:
-                if symb not in self.symb2int:
-                    self.symb2int[symb] = cpt_symb_fr
-                    cpt_symb_fr += 1
+            for i in range(len(self.data)):
+                value = self.data[i][0]
+                for symb in value:
+                    if symb not in self.symb2int:
+                        self.symb2int[symb] = cpt_symb_fr
+                        cpt_symb_fr += 1
+        else:
+            self.symb2int = previous_symb2int
 
-        self.int2symb = {v: k for k, v in self.symb2int.items()}
+        if previous_int2symb is None:
+            self.int2symb = {v: k for k, v in self.symb2int.items()}
+        else:
+            self.int2symb = previous_int2symb
 
         self.original_coords = copy.deepcopy(self.data)
 
@@ -61,12 +67,12 @@ class HandwrittenWords(Dataset):
 
         mean_x, mean_y = np.mean(all_x), np.mean(all_y)
 
-        for value in self.data:
-            x_coords, y_coords = value[1][0], value[1][1]
-            normalized_mean_x = [(x - mean_x) / (max_x - min_x) for x in x_coords]
-            normalized_mean_y = [(y - mean_y) / (max_y - min_y) for y in y_coords]
-            value[1][0] = normalized_mean_x
-            value[1][1] = normalized_mean_y
+        # for value in self.data:
+        #     x_coords, y_coords = value[1][0], value[1][1]
+        #     normalized_mean_x = [(x - mean_x) / (max_x - min_x) for x in x_coords]
+        #     normalized_mean_y = [(y - mean_y) / (max_y - min_y) for y in y_coords]
+        #     value[1][0] = normalized_mean_x
+        #     value[1][1] = normalized_mean_y
 
         self.max_len = {}
         if previous_max_len is None:
@@ -127,7 +133,7 @@ class HandwrittenWords(Dataset):
         return torch.tensor(self.data[idx][1]), torch.tensor(target_seq), torch.tensor(self.original_coords[idx][1])
 
     def visualisation(self, idx):
-        coord_seq, target_seq,_ = [i.numpy() for i in self[idx]]
+        coord_seq, target_seq, _ = [i.numpy() for i in self[idx]]
         target_seq = [self.int2symb[i] for i in target_seq]
         print('Input: ', ' ' + str(coord_seq))
         print('Cible: ', ' '.join(target_seq))
