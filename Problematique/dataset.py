@@ -9,7 +9,7 @@ import copy
 class HandwrittenWords(Dataset):
     """Ensemble de donnees de mots ecrits a la main."""
 
-    def __init__(self, filename, show=False):
+    def __init__(self, filename, previous_max_len=None, show=False):
         # Lecture du text
         self.pad_symbol     = pad_symbol = '#'
 
@@ -68,20 +68,19 @@ class HandwrittenWords(Dataset):
             value[1][0] = normalized_mean_x
             value[1][1] = normalized_mean_y
 
-        # Ajout du padding pour les targets TODO: idk comment faire encore pour les mouvements
-        self.max_len = dict()
-
-        self.max_len['txt'] = max(len(value[0]) for value in self.data)
+        self.max_len = {}
+        if previous_max_len is None:
+            self.max_len['txt'] = max(len(value[0]) for value in self.data)
+            self.max_len['coords'] = 0
+            for value in self.data:
+                if len(value[1][1]) > self.max_len['coords']: self.max_len['coords'] = len(value[1][1])
+        else:
+            self.max_len = previous_max_len
 
         for value in self.data:
             len_diff = self.max_len['txt'] - len(value[0])
             if len_diff != 0:
                 for i in range(len_diff): value[0].append(self.pad_symbol)
-
-        # Ajout du padding pour les coordonnées
-        self.max_len['coords'] = 0
-        for value in self.data:
-            if len(value[1][1]) > self.max_len['coords']: self.max_len['coords'] = len(value[1][1])
 
         for value in self.data:
             len_lol = len(value[1][1])

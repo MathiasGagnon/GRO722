@@ -5,7 +5,7 @@ import os
 import torch
 from torch import nn
 import numpy as np
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader, ConcatDataset
 from models import *
 from dataset import *
 from metrics import edit_distance, confusion_matrix
@@ -14,11 +14,38 @@ import matplotlib.pyplot as plt
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
+def log_progress(epoch, n_epochs, batch_idx, dataload, 
+                          running_loss, dist, list_loss, list_dist, type):
+    
+    avg_loss = running_loss / (batch_idx + 1)
+    avg_dist = dist / len(dataload.dataset)
+
+    print(f'{type} - Epoch: {epoch}/{n_epochs} Average Loss: {avg_loss} Average Edit Distance: {avg_dist}')
+    
+    # Append average values
+    list_loss.append(avg_loss)
+    list_dist.append(avg_dist)
+
+def calculate_edit_distance(output, cible, dataset, dist):
+    output_list = output.detach().cpu().tolist()
+    cible_list = cible.cpu().tolist()
+
+    for out, target in zip(output_list, cible_list):
+        out_word = [dataset.int2symb[np.argmax(char)] for char in out if np.argmax(char) not in [0]]
+        out_str = ''.join(out_word)
+
+        target_word = [dataset.int2symb[char] for char in target if char not in [0]]
+        target_str = ''.join(target_word)
+
+        dist += edit_distance(out_str, target_str)
+
+    return dist
+
 if __name__ == '__main__':
 
     # ---------------- Paramètres et hyperparamètres ----------------#
     force_cpu = False           # Forcer a utiliser le cpu?
-    training = False           # Entrainement?
+    training = True           # Entrainement?
     _test = True                # Test?
     learning_curves = True     # Affichage des courbes d'entrainement?
     gen_test_images = True     # Génération images test?
@@ -46,7 +73,11 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() and not force_cpu else "cpu")
 
     # Instanciation de l'ensemble de données
-    dataset = HandwrittenWords('data_trainval.p')
+    dataset = HandwrittenWords('Problematique/data_trainval.p')
+    dataset_test = HandwrittenWords('Problematique/data_test.p', dataset.max_len)
+
+    dataset_test.int2symb = dataset.int2symb
+    dataset_test.symb2int = dataset.symb2int     
     
     # Séparation de l'ensemble de données (entraînement et validation)
     n_train_samp = int(len(dataset) * train_val_split)
@@ -56,6 +87,7 @@ if __name__ == '__main__':
 
     # Instanciation des dataloaders
     dataload_train = DataLoader(dataset_train, batch_size=batch_size, shuffle=True, num_workers=n_workers)
+    dataload_test = DataLoader(dataset_test, batch_size=batch_size, shuffle=True, num_workers=n_workers)
     dataload_val = DataLoader(dataset_val, batch_size=batch_size, shuffle=False, num_workers=n_workers)
 
     fig, (ax_loss, ax_dist) = plt.subplots(1, 2, figsize=(12, 5))
@@ -86,77 +118,46 @@ if __name__ == '__main__':
         for epoch in range(1, n_epochs + 1):
             # Entraînement
             running_loss_train = 0
-            dist = 0
-            for batch_idx, data in enumerate(dataload_train):
-                # Formatage des données
-                coord, cible, original_coords = data
-                coord = coord.to(device).float()
-                cible = cible.to(device)
-                cible_onehot = F.one_hot(cible, 27)
-                optimizer.zero_grad()  # Mise a zero du gradient
-                output, hidden, attn = model(coord, cible_onehot)  # Passage avant
-                test = output.view((-1, model.dict_size))
-                loss = criterion(output.contiguous().view((-1, model.dict_size)), cible.view(-1))
+            dist_train = 0
+            dataset_list = [dataload_test, dataload_train]
+            for sub_dataset in dataset_list:
+                for batch_idx, data in enumerate(sub_dataset):
+                    # Formatage des données
+                    coord, cible, _ = data
+                    coord = coord.to(device).float()
+                    cible = cible.to(device)
+                    cible_onehot = F.one_hot(cible, 27)
+                    optimizer.zero_grad()  # Mise a zero du gradient
+                    output, hidden, attn = model(coord, cible_onehot)  # Passage avant
+                    loss = criterion(output.contiguous().view((-1, model.dict_size)), cible.view(-1))
 
-                loss.backward()  # calcul du gradient
-                optimizer.step()  # Mise a jour des poids
-                running_loss_train += loss.item()
+                    loss.backward()  # calcul du gradient
+                    optimizer.step()  # Mise a jour des poids
+                    running_loss_train += loss.item()
 
-                 # calcul de la distance d'édition
-                output_list = output.detach().cpu().tolist()
-                cible_list = cible.cpu().tolist()
-                for out, cible in zip(output_list, cible_list):
-                    out_word = [dataset.int2symb[np.argmax(char)] for char in out if np.argmax(char) not in [0]]
-                    out_str = ''.join(out_word)
+                    # calcul de la distance d'édition
+                    dist_train = calculate_edit_distance(output, cible, dataset, dist_train)
 
-                    cible_word = []
-                    cible_word = [dataset.int2symb[char] for char in cible if char not in [0]]
-                    cible_str = ''.join(cible_word)
-
-                    dist += edit_distance(out_str, cible_str)
-            print('Train - Epoch: {}/{} [{}/{} ({:.0f}%)] Average Loss: {:.6f} Average Edit Distance: {:.6f}'.format(
-                    epoch, n_epochs, (batch_idx + 1) * batch_size, len(dataload_train.dataset),
-                                         100. * (batch_idx + 1) * batch_size / len(dataload_train.dataset),
-                                         running_loss_train / (batch_idx + 1),
-                                         dist / len(dataload_train.dataset)))
-            train_loss.append(running_loss_train / (len(dataload_train.dataset)/(batch_size)))
-            train_dist.append(dist / len(dataload_train.dataset))
+            log_progress(epoch, n_epochs, batch_idx, sub_dataset, running_loss_train, dist_train, train_loss, train_dist, 'Train')
 
             # Valid
             running_loss_val = 0
             dist_val = 0
-            for batch_idx, data in enumerate(dataload_val):
-                coord, cible = data
-                coord = coord.to(device).float()
-                cible = cible.to(device)
-                torch.no_grad()
-                output, hidden, attn = model(coord, None)  # Passage avant
-                test = output.view((-1, model.dict_size))
-                loss = criterion(output.contiguous().view((-1, model.dict_size)), cible.view(-1))
+            with torch.no_grad():
+                for batch_idx, data in enumerate(dataload_val):
+                    coord, cible, _ = data
+                    coord = coord.to(device).float()
+                    cible = cible.to(device)
 
-                running_loss_val += loss.item()
+                    output, hidden, attn = model(coord, None)
+                    loss = criterion(output.contiguous().view((-1, model.dict_size)), cible.view(-1))
 
-                # calcul de la distance d'édition
-                output_list = output.detach().cpu().tolist()
-                cible_list = cible.cpu().tolist()
-                for out, cible in zip(output_list, cible_list):
-                    out_word = [dataset.int2symb[np.argmax(char)] for char in out if np.argmax(char) not in [0]]
-                    out_str = ''.join(out_word)
+                    running_loss_val += loss.item()
 
-                    cible_word = []
-                    cible_word = [dataset.int2symb[char] for char in cible if char not in [0]]
-                    cible_str = ''.join(cible_word)
+                    # calcul de la distance d'édition
+                    dist_val = calculate_edit_distance(output, cible, dataset, dist_val)
 
-                    dist_val += edit_distance(out_str, cible_str)
-
-            print('Val - Epoch: {}/{} [{}/{} ({:.0f}%)] Average Loss: {:.6f} Average Edit Distance: {:.6f}'.format(
-                epoch, n_epochs, (batch_idx + 1) * batch_size, len(dataload_val.dataset),
-                                 100. * (batch_idx + 1) * batch_size / len(dataload_val.dataset),
-                                 running_loss_val / (batch_idx + 1),
-                                 dist_val / len(dataload_val.dataset)), end='\n')
-            print('\n')
-            val_loss.append(running_loss_val / (len(dataload_val.dataset)/(batch_size)))
-            val_dist.append(dist_val / len(dataload_val.dataset))
+                log_progress(epoch, n_epochs, batch_idx, dataload_val, running_loss_val, dist_val, val_loss, val_dist, 'Val')
 
             if learning_curves:
                 ax_loss.cla()
@@ -181,7 +182,7 @@ if __name__ == '__main__':
             # Enregistrer les poids
             if val_loss[-1] < best_val_loss:
                 best_val_loss = val_loss[-1]
-                torch.save(model.state_dict(), 'best_model_1.pt')
+                torch.save(model.state_dict(), 'oracle.pt')
                 print(f"Best model saved with validation loss: {best_val_loss}")
 
             # Terminer l'affichage d'entraînement
@@ -189,11 +190,11 @@ if __name__ == '__main__':
             all_true = []
             all_pred = []
 
-            model.load_state_dict(torch.load('best_model.pt'))
+            model.load_state_dict(torch.load('oracle.pt'))
 
             with torch.no_grad():
                 for batch_idx, data in enumerate(dataload_val):
-                    coord, cible = data
+                    coord, cible, _ = data
                     coord = coord.to(device).float()
                     cible = cible.to(device)
                     
@@ -216,14 +217,35 @@ if __name__ == '__main__':
 
     if _test:
         # Évaluation
-
+        dataset_test = HandwrittenWords('Problematique/data_test.p', dataset.max_len)
+        dataload_test = DataLoader(dataset_test, batch_size=batch_size, shuffle=True, num_workers=n_workers)
         # Chargement des poids
-        model.load_state_dict(torch.load('best_model.pt', map_location=torch.device('cpu')))
-        dataset.symb2int = model.symb2int
-        dataset.int2symb = model.int2symb
+        model.load_state_dict(torch.load('best_model_1.pt'))
+
+        criterion = nn.CrossEntropyLoss()
+        running_loss_test = 0
+        dist_test = 0
+
+        with torch.no_grad():
+                for batch_idx, data in enumerate(dataload_test):
+                    coord , cible, _ = data
+                    coord = coord.to(device).float()
+                    cible = cible.to(device)
+                    cible_onehot = F.one_hot(cible, 27)
+                    # Forward pass
+                    output, hidden, attn = model(coord, cible_onehot)
+
+                    loss = criterion(output.contiguous().view((-1, model.dict_size)), cible.view(-1))
+                    running_loss_test += loss.item()
+
+                    # calcul de la distance d'édition
+                    dist_test = calculate_edit_distance(output, cible, dataset, dist_test)
+
+                print(f'Test - Average Loss: {running_loss_test / (batch_idx + 1)} Average Edit Distance: {dist_test / len(dataload_test.dataset)} \n')
+     
 
         for i in range(10):
-            coord_seq, target_seq, original_coords = dataset[np.random.randint(0, len(dataset))]
+            coord_seq, target_seq, original_coords = dataset_test[np.random.randint(0, len(dataset_test))]
             coord_seq = coord_seq[None, :].to(device).float()  # Shape [1, 2, *]
 
             output, hidden, attn = model(coord_seq, None)
@@ -234,7 +256,6 @@ if __name__ == '__main__':
             target = [model.int2symb[i] for i in target_seq.detach().cpu().tolist()]
             out_seq = [model.int2symb[i] for i in out]
 
-            print('Input:  ', in_seq)
             print('Target: ', ' '.join(target))
             print('Output: ', ' '.join(out_seq))
             print('')
