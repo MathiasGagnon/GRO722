@@ -299,6 +299,27 @@ if __name__ == "__main__":
                 f"Test - Average Loss: {running_loss_test / (batch_idx + 1)} Average Edit Distance: {dist_test / len(dataload_test.dataset)} \n"
             )
 
+        fig, axs = plt.subplots(1, 3, figsize=(18, 6))
+        
+        for i in range(3):
+            coord_seq, target_seq, original_coords = dataset_test[np.random.randint(0, len(dataset_test))]
+            coord_seq = coord_seq[None, :].to(device).float()
+
+            output, _, _ = model(coord_seq, None)
+            out = torch.argmax(output, dim=2).detach().cpu()[0, :].tolist()
+
+            in_seq = original_coords.squeeze(0).detach().cpu().numpy()
+            target = [model.int2symb[i] for i in target_seq.detach().cpu().tolist()]
+            out_seq = [model.int2symb[i] for i in out]
+
+            x_coords, y_coords = in_seq[0], in_seq[1]
+
+            axs[i].scatter(x_coords, y_coords, cmap="Blues", s=50, edgecolor="black")
+            axs[i].set_title(f"(Cible: {''.join(target)}, Sortie: {''.join(out_seq)})")
+            axs[i].set_xlabel("X")
+            axs[i].set_ylabel("Y")
+        plt.show()
+
         for i in range(10):
             coord_seq, target_seq, original_coords = dataset_test[
                 np.random.randint(0, len(dataset_test))
@@ -335,7 +356,5 @@ if __name__ == "__main__":
 
                 # Labels and title
                 plt.title(f"Lettre: '{letter}', Cible:'{out_seq}'")
-
                 plt.colorbar(scatter, label="Attention Intensity")
-
                 plt.show()
