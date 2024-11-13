@@ -15,25 +15,29 @@ from dataset import *
 # Inclure le modèle
 from models import *
 
-if __name__ =="__main__":
+if __name__ == "__main__":
 
     # ---------------- Paramètres et hyperparamètres ----------------#
-    force_cpu = True            # Forcer l'utilisation du CPU (si un GPU est disponible)
-    training = False             # Faire l'entrainement sur l'ensemble de donnees
-    learning_curves = True      # Visualiser les courbes d'apprentissage pendant l'entrainement
-    test_tagging = False         # Visualiser l'annotation sur des echantillons de validation
-    test_generation = True     # Visualiser la generation sur des echantillons de validation
+    force_cpu = True  # Forcer l'utilisation du CPU (si un GPU est disponible)
+    training = False  # Faire l'entrainement sur l'ensemble de donnees
+    learning_curves = (
+        True  # Visualiser les courbes d'apprentissage pendant l'entrainement
+    )
+    test_tagging = False  # Visualiser l'annotation sur des echantillons de validation
+    test_generation = (
+        True  # Visualiser la generation sur des echantillons de validation
+    )
 
-    batch_size = 10             # Taille des lots
-    n_epochs = 50               # Nombre d'iteration sur l'ensemble de donnees
-    lr = 0.01                   # Taux d'apprentissage pour l'optimizateur
+    batch_size = 10  # Taille des lots
+    n_epochs = 50  # Nombre d'iteration sur l'ensemble de donnees
+    lr = 0.01  # Taux d'apprentissage pour l'optimizateur
 
-    n_hidden = 25               # Nombre de neurones caches par couche 
-    n_layers = 1                # Nombre de de couches
+    n_hidden = 25  # Nombre de neurones caches par couche
+    n_layers = 1  # Nombre de de couches
 
-    n_workers = 0               # Nombre de fils pour charger les donnees
-    train_val_split = .7        # Ratio des echantillions pour l'entrainement
-    seed = None                 # Pour repetabilite
+    n_workers = 0  # Nombre de fils pour charger les donnees
+    train_val_split = 0.7  # Ratio des echantillions pour l'entrainement
+    seed = None  # Pour repetabilite
     # ------------ Fin des paramètres et hyperparamètres -----------#
 
     # Initialisation des variables
@@ -42,42 +46,50 @@ if __name__ =="__main__":
         np.random.seed(seed)
 
     # Choix du device
-    device = torch.device("cuda" if torch.cuda.is_available() and not force_cpu else "cpu")
+    device = torch.device(
+        "cuda" if torch.cuda.is_available() and not force_cpu else "cpu"
+    )
 
     # Instanciation de l'ensemble de données
     dataset = SignauxDataset()
 
     # Séparation du dataset (entraînement et validation)
-    n_train_samp = int(len(dataset)*train_val_split)
-    n_val_samp = len(dataset)-n_train_samp
-    dataset_train, dataset_val = torch.utils.data.random_split(dataset, [n_train_samp, n_val_samp])
+    n_train_samp = int(len(dataset) * train_val_split)
+    n_val_samp = len(dataset) - n_train_samp
+    dataset_train, dataset_val = torch.utils.data.random_split(
+        dataset, [n_train_samp, n_val_samp]
+    )
 
     # Instanciation des dataloaders
-    dataload_train = DataLoader(dataset_train, batch_size=batch_size, shuffle=True, num_workers=n_workers)
-    dataload_val = DataLoader(dataset_val, batch_size=batch_size, shuffle=False, num_workers=n_workers)
+    dataload_train = DataLoader(
+        dataset_train, batch_size=batch_size, shuffle=True, num_workers=n_workers
+    )
+    dataload_val = DataLoader(
+        dataset_val, batch_size=batch_size, shuffle=False, num_workers=n_workers
+    )
 
-    print('Number of epochs : ', n_epochs)
-    print('Training data : ', len(dataset_train))
-    print('Validation data : ', len(dataset_val))
-    print('\n')
+    print("Number of epochs : ", n_epochs)
+    print("Training data : ", len(dataset_train))
+    print("Validation data : ", len(dataset_val))
+    print("\n")
 
     # Instanciation du model
-    model = Model(n_hidden,  n_layers=n_layers)
+    model = Model(n_hidden, n_layers=n_layers)
     model = model.to(device)
 
     # Afficher le résumé du model
-    print('Model : \n', model, '\n')
-    
+    print("Model : \n", model, "\n")
+
     # Initialisation des variables
-    best_val_loss = np.inf # pour sauvegarder le meilleur model
+    best_val_loss = np.inf  # pour sauvegarder le meilleur model
 
     if training:
 
         # Initialisation affichage
         if learning_curves:
-            val_loss =[] # Historique des coûts
-            train_loss=[] # Historique des coûts
-            fig, ax = plt.subplots(1) # Initialisation figure
+            val_loss = []  # Historique des coûts
+            train_loss = []  # Historique des coûts
+            fig, ax = plt.subplots(1)  # Initialisation figure
 
         # Fonction de coût et optimizateur
         criterion = nn.MSELoss()
@@ -104,9 +116,17 @@ if __name__ =="__main__":
 
                 # Affichage pendant l'entraînement
                 if batch_idx % 10 == 0:
-                    print('Train - Epoch: {}/{} [{}/{} ({:.0f}%)] Average Loss: {:.6f}'.format(
-                        epoch, n_epochs, batch_idx * len(data), len(dataload_train.dataset),
-                                        100. * batch_idx / len(dataload_train), running_loss_train / (batch_idx + 1)), end='\r')
+                    print(
+                        "Train - Epoch: {}/{} [{}/{} ({:.0f}%)] Average Loss: {:.6f}".format(
+                            epoch,
+                            n_epochs,
+                            batch_idx * len(data),
+                            len(dataload_train.dataset),
+                            100.0 * batch_idx / len(dataload_train),
+                            running_loss_train / (batch_idx + 1),
+                        ),
+                        end="\r",
+                    )
 
             # Validation
             running_loss_val = 0
@@ -123,34 +143,37 @@ if __name__ =="__main__":
                 running_loss_val += loss.item()
                 # ---------------------- Laboratoire 1 - Question 3 - Fin de la section à compléter ------------------
 
-            print('\nValidation - Average loss: {:.4f}'.format(running_loss_val/len(dataload_val)))
-            print('')
-            
+            print(
+                "\nValidation - Average loss: {:.4f}".format(
+                    running_loss_val / len(dataload_val)
+                )
+            )
+            print("")
+
             # Affichage
             if learning_curves:
-                train_loss.append(running_loss_train/len(dataload_train))
-                val_loss.append(running_loss_val/len(dataload_val))
+                train_loss.append(running_loss_train / len(dataload_train))
+                val_loss.append(running_loss_val / len(dataload_val))
                 ax.cla()
-                ax.plot(train_loss, label='training loss')
-                ax.plot(val_loss, label='validation loss')
+                ax.plot(train_loss, label="training loss")
+                ax.plot(val_loss, label="validation loss")
                 ax.legend()
                 plt.draw()
                 plt.pause(0.01)
-            
+
             # Enregistrer les poids
             if running_loss_val < best_val_loss:
                 best_val_loss = running_loss_val
-                torch.save(model,'model.pt')
+                torch.save(model, "model.pt")
 
         # Terminer l'affichage d'entraînement
         if learning_curves:
             plt.show()
-            plt.close('all')
-
+            plt.close("all")
 
     if test_tagging:
         # Évaluation étiquettage
-        model = torch.load('model.pt', map_location=lambda storage, loc: storage)
+        model = torch.load("model.pt", map_location=lambda storage, loc: storage)
         model = model.to(device)
         model.eval()
         for num in range(10):
@@ -167,27 +190,32 @@ if __name__ =="__main__":
             plt.plot(prediction_sequence)
             plt.show()
 
-
     if test_generation:
         # Évaluation génération
-        model = torch.load('model.pt', map_location=lambda storage, loc: storage)
+        model = torch.load("model.pt", map_location=lambda storage, loc: storage)
         model = model.to(device)
         model.eval()
         for num in range(10):
             # Extraction d'une séquence du dataset de validation
-            input_sequence, target_sequence = dataset_val[np.random.randint(0,len(dataset_val))]
+            input_sequence, target_sequence = dataset_val[
+                np.random.randint(0, len(dataset_val))
+            ]
 
             # Calcul du nombre de prédictions à générer
-            usable_input_sequence_len = len(input_sequence)>>1
-            nb_predictions_to_generate = len(input_sequence)-usable_input_sequence_len
+            usable_input_sequence_len = len(input_sequence) >> 1
+            nb_predictions_to_generate = len(input_sequence) - usable_input_sequence_len
 
             # Initialisation de la prédiction de sortie
             prediction_sequence = np.zeros(nb_predictions_to_generate)
 
             # ---------------------- Laboratoire 1 - Question 5 - Début de la section à compléter ------------------
             first_half = input_sequence[:usable_input_sequence_len]
-            first_half_tensor = torch.tensor(first_half, dtype=torch.float32).unsqueeze(0).unsqueeze(-1).to(
-                device)
+            first_half_tensor = (
+                torch.tensor(first_half, dtype=torch.float32)
+                .unsqueeze(0)
+                .unsqueeze(-1)
+                .to(device)
+            )
 
             _, h = model(first_half_tensor)
 
@@ -195,7 +223,7 @@ if __name__ =="__main__":
 
             for i in range(nb_predictions_to_generate):
                 output, h = model(last_input, h)
- # Shape: ()
+                # Shape: ()
                 converted_output = output.squeeze().detach().cpu().numpy()
                 prediction_sequence[i] = converted_output
 
@@ -203,9 +231,10 @@ if __name__ =="__main__":
 
             # ---------------------- Laboratoire 1 - Question 5 - Fin de la section à compléter ------------------
 
-
-            prediction_t = [i+usable_input_sequence_len for i in range(nb_predictions_to_generate)]
+            prediction_t = [
+                i + usable_input_sequence_len for i in range(nb_predictions_to_generate)
+            ]
             plt.plot(target_sequence)
-            plt.plot(prediction_t,prediction_sequence)
+            plt.plot(prediction_t, prediction_sequence)
             plt.title("Generated data")
             plt.show()
