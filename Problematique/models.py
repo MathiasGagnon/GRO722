@@ -53,7 +53,7 @@ class trajectory2seq(nn.Module):
         self.attention_fc = nn.Sequential(
             nn.Linear(2 * hidden_dim, hidden_dim),
         )
-        self.fc = nn.Sequential(
+        self.decoder_fc = nn.Sequential(
             nn.Linear(hidden_dim, self.dict_size),
         )
 
@@ -68,15 +68,14 @@ class trajectory2seq(nn.Module):
 
     def print_num_params(self):
         total_params = sum(p.numel() for p in self.parameters())
-        print(f"Number of parameters: {total_params}")
+        print(f"params: {total_params}")
 
     def encoder(self, x):
-        # Encodeur
-        permutted = x.permute(0, 2, 1)
+        x_permuted = x.permute(0, 2, 1)
 
-        input = self.premier_fc(permutted)
+        x_resized = self.encoder_fc(x_permuted)
 
-        out, hidden = self.encoder_layer(input)
+        out, hidden = self.encoder_layer(x_resized)
         out = self.bi_fc(out)
         return out, hidden
 
@@ -103,10 +102,13 @@ class trajectory2seq(nn.Module):
 
             combined = torch.cat((output, a), dim=-1)
             output = self.attention_fc(combined)
-            output = self.fc(output)
+            output = self.decoder_fc(output)
+
             argmax_output = output.argmax(dim=-1)
             vec_out[:, i, :] = output.squeeze(1)
             vec_in = argmax_output
+
+            #Teacher forcing
             if forced_teaching > self.forced_th and target is not None:
                 target_argmax = target[:, i, :].argmax(dim=1).unsqueeze(1)
                 vec_in = target_argmax

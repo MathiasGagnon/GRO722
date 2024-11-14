@@ -18,6 +18,7 @@ class HandwrittenWords(Dataset):
         show=False,
     ):
         self.pad_symbol = pad_symbol = "#"
+        self.pad_coord = 0
 
         self.data = dict()
         with open(filename, "rb") as fp:
@@ -58,6 +59,13 @@ class HandwrittenWords(Dataset):
             value[1][0] = diff_x
             value[1][1] = diff_y
 
+        all_x, all_y = [], []
+
+        for value in self.data:
+            all_x.extend(value[1][0])
+            all_y.extend(value[1][1])
+
+
         self.max_len = {}
         if previous_max_len is None:
             self.max_len["txt"] = max(len(value[0]) for value in self.data)
@@ -79,33 +87,13 @@ class HandwrittenWords(Dataset):
             len_diff = self.max_len["coords"] - len(value[1][1])
             if len_diff != 0:
                 for i in range(len_diff):
-                    value[1] = np.insert(value[1], len(value[1][1]), 0, axis=1)
+                    value[1] = np.insert(value[1], len(value[1][1]), self.pad_coord, axis=1)
 
         for value in self.original_coords:
-            len_lol = len(value[1][1])
             len_diff = self.max_len["coords"] - len(value[1][1])
             if len_diff != 0:
                 for i in range(len_diff):
-                    value[1] = np.insert(value[1], len(value[1][1]), 0, axis=1)
-
-        if show:
-            first_coords = self.data[20][1] 
-            x_coords = first_coords[0]
-            y_coords = first_coords[1]
-
-            plt.figure(figsize=(8, 6))
-            plt.scatter(x_coords, y_coords, color="blue", marker="o")
-            plt.title(self.data[20][0])
-            plt.xlabel("X")
-            plt.ylabel("Y")
-            plt.grid(True)
-
-            for i, (x, y) in enumerate(zip(x_coords, y_coords)):
-                plt.text(
-                    x, y, f"{i}", fontsize=9, ha="right", color="red"
-                )
-
-            plt.show()
+                    value[1] = np.insert(value[1], len(value[1][1]), self.pad_coord, axis=1)
 
         self.dict_size = len(self.int2symb)
 
