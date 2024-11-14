@@ -20,6 +20,7 @@ class HandwrittenWords(Dataset):
     ):
         # Lecture du text
         self.pad_symbol = pad_symbol = "#"
+        self.pad_coord = 0
 
         self.data = dict()
         with open(filename, "rb") as fp:
@@ -61,26 +62,12 @@ class HandwrittenWords(Dataset):
             value[1][0] = diff_x
             value[1][1] = diff_y
 
-        max_x, min_x = float("-inf"), float("inf")
-        max_y, min_y = float("-inf"), float("inf")
-
         all_x, all_y = [], []
 
         for value in self.data:
             all_x.extend(value[1][0])
             all_y.extend(value[1][1])
 
-        max_x, min_x = max(all_x), min(all_x)
-        max_y, min_y = max(all_y), min(all_y)
-
-        mean_x, mean_y = np.mean(all_x), np.mean(all_y)
-
-        # for value in self.data:
-        #     x_coords, y_coords = value[1][0], value[1][1]
-        #     normalized_mean_x = [(x - mean_x) / (max_x - min_x) for x in x_coords]
-        #     normalized_mean_y = [(y - mean_y) / (max_y - min_y) for y in y_coords]
-        #     value[1][0] = normalized_mean_x
-        #     value[1][1] = normalized_mean_y
 
         self.max_len = {}
         if previous_max_len is None:
@@ -100,43 +87,16 @@ class HandwrittenWords(Dataset):
 
         for value in self.data:
             len_lol = len(value[1][1])
-            last_val = value[1][:, len_lol - 1]
             len_diff = self.max_len["coords"] - len(value[1][1])
             if len_diff != 0:
                 for i in range(len_diff):
-                    value[1] = np.insert(value[1], len(value[1][1]), 0, axis=1)
+                    value[1] = np.insert(value[1], len(value[1][1]), self.pad_coord, axis=1)
 
         for value in self.original_coords:
-            len_lol = len(value[1][1])
-            last_val = value[1][:, len_lol - 1]
             len_diff = self.max_len["coords"] - len(value[1][1])
             if len_diff != 0:
                 for i in range(len_diff):
-                    value[1] = np.insert(value[1], len(value[1][1]), 0, axis=1)
-
-        # Extract the first set of coordinates
-        first_coords = self.data[20][
-            1
-        ]  # Assumes self.data[0][1] contains [x_coords, y_coords]
-        x_coords = first_coords[0]
-        y_coords = first_coords[1]
-
-        # Plot the coordinates
-        if show:
-            plt.figure(figsize=(8, 6))
-            plt.scatter(x_coords, y_coords, color="blue", marker="o")
-            plt.title(self.data[20][0])
-            plt.xlabel("X")
-            plt.ylabel("Y")
-            plt.grid(True)
-
-            # Annotate each point with its index
-            for i, (x, y) in enumerate(zip(x_coords, y_coords)):
-                plt.text(
-                    x, y, f"{i}", fontsize=9, ha="right", color="red"
-                )  # Adjust fontsize and position as needed
-
-            plt.show()
+                    value[1] = np.insert(value[1], len(value[1][1]), self.pad_coord, axis=1)
 
         self.dict_size = len(self.int2symb)
 

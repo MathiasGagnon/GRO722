@@ -55,7 +55,7 @@ if __name__ == "__main__":
 
     # ---------------- Paramètres et hyperparamètres ----------------#
     force_cpu = False  # Forcer a utiliser le cpu?
-    training = False  # Entrainement?
+    training = True  # Entrainement?
     _test = True  # Test?
     learning_curves = True  # Affichage des courbes d'entrainement?
     gen_test_images = True  # Génération images test?
@@ -66,7 +66,7 @@ if __name__ == "__main__":
 
     # À compléter
     batch_size = 200  # Taille des lots
-    n_epochs = 800  # Nombre d'iteration sur l'ensemble de donnees
+    n_epochs = 150  # Nombre d'iteration sur l'ensemble de donnees
     lr = 0.015  # Taux d'apprentissage pour l'optimizateur
 
     n_hidden = 11  # Nombre de neurones caches par couche
@@ -85,11 +85,11 @@ if __name__ == "__main__":
 
     # Choix du device
     device = torch.device(
-        "cuda" if torch.cuda.is_available() and not force_cpu else "cpu"
+        "cpu"
     )
 
     # Instanciation de l'ensemble de données
-    dataset = HandwrittenWords("Problematique/data_trainval.p")
+    dataset = HandwrittenWords("data_trainval.p")
 
     # Séparation de l'ensemble de données (entraînement et validation)
     n_train_samp = int(len(dataset) * train_val_split)
@@ -99,7 +99,7 @@ if __name__ == "__main__":
     )
 
     dataset_test = HandwrittenWords(
-        "Problematique/data_test.p", dataset.max_len, dataset.int2symb, dataset.symb2int
+        "data_test.p", dataset.max_len, dataset.int2symb, dataset.symb2int
     )
     dataload_test = DataLoader(
         dataset_test, batch_size=batch_size, shuffle=True, num_workers=n_workers
@@ -135,7 +135,7 @@ if __name__ == "__main__":
         best_val_loss = np.inf  # pour sauvegarder le meilleur model
 
         # Fonction de coût et optimizateur
-        criterion = nn.CrossEntropyLoss()  # ignorer les symboles <pad>
+        criterion = nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
         if learning_curves:
@@ -241,7 +241,7 @@ if __name__ == "__main__":
         all_true = []
         all_pred = []
 
-        model.load_state_dict(torch.load(save_path))
+        model.load_state_dict(torch.load(save_path, map_location=torch.device('cpu')))
 
         with torch.no_grad():
             for batch_idx, data in enumerate(dataload_val):
@@ -268,10 +268,9 @@ if __name__ == "__main__":
 
     if _test:
         # Évaluation
-        model.load_state_dict(torch.load(save_path))
+        model.load_state_dict(torch.load(save_path, map_location=torch.device('cpu')))
 
         # Chargement des poids
-
         criterion = nn.CrossEntropyLoss()
         running_loss_test = 0
         dist_test = 0
@@ -324,13 +323,12 @@ if __name__ == "__main__":
             coord_seq, target_seq, original_coords = dataset_test[
                 np.random.randint(0, len(dataset_test))
             ]
-            coord_seq = coord_seq[None, :].to(device).float()  # Shape [1, 2, *]
+            coord_seq = coord_seq[None, :].to(device).float()
 
             output, hidden, attn = model(coord_seq, None)
             out = torch.argmax(output, dim=2).detach().cpu()[0, :].tolist()
 
-            # Convert sequences to human-readable format
-            in_seq = original_coords.squeeze(0).detach().cpu().numpy()  # Shape [2, *]
+            in_seq = original_coords.squeeze(0).detach().cpu().numpy()
             target = [model.int2symb[i] for i in target_seq.detach().cpu().tolist()]
             out_seq = [model.int2symb[i] for i in out]
 
@@ -354,7 +352,6 @@ if __name__ == "__main__":
                     x_coords, y_coords, c=colors, cmap="Blues", s=50, edgecolor="black"
                 )
 
-                # Labels and title
-                plt.title(f"Lettre: '{letter}', Cible:'{out_seq}'")
+                plt.title(f"Lettre: '{letter}', Cible:'{target}', Prediction:'{out_seq}'")
                 plt.colorbar(scatter, label="Attention Intensity")
                 plt.show()

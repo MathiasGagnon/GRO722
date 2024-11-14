@@ -49,13 +49,12 @@ class trajectory2seq(nn.Module):
             dropout=self.dropout_rate,
         )
 
-        self.premier_fc = nn.Linear(2, hidden_dim)
-
-        # Définition de la couche dense pour la sortie
+        #Fully connected layers
+        self.encoder_fc = nn.Linear(2, hidden_dim)
         self.attention_fc = nn.Sequential(
             nn.Linear(2 * hidden_dim, hidden_dim),
         )
-        self.fc = nn.Sequential(
+        self.decoder_fc = nn.Sequential(
             nn.Linear(hidden_dim, self.dict_size),
         )
 
@@ -71,26 +70,25 @@ class trajectory2seq(nn.Module):
 
     def print_num_params(self):
         total_params = sum(p.numel() for p in self.parameters())
-        print(f"Number of parameters: {total_params}")
+        print(f"params: {total_params}")
 
     def encoder(self, x):
-        # Encodeur
-        permutted = x.permute(0, 2, 1)
+        x_permuted = x.permute(0, 2, 1)
 
-        input = self.premier_fc(permutted)
+        x_resized = self.encoder_fc(x_permuted)
 
-        out, hidden = self.encoder_layer(input)
+        out, hidden = self.encoder_layer(x_resized)
         out = self.bi_fc(out)
         return out, hidden
 
     def decoder(self, encoder_outs, hidden, target):
-        batch_size = hidden.shape[1]  # Taille de la batch
+        batch_size = hidden.shape[1]
         vec_in = (
             torch.zeros((batch_size, 1)).to(self.device).long()
-        )  # Vecteur d'entrée pour décodage
+        )
         vec_out = (
             torch.zeros((batch_size, self.maxlen["txt"], 27)).to(self.device).float()
-        )  # Vecteur de sortie du décodage
+        )
         attention_w = torch.zeros(
             (batch_size, self.maxlen["coords"], self.maxlen["txt"])
         ).to(self.device)
@@ -106,10 +104,13 @@ class trajectory2seq(nn.Module):
 
             combined = torch.cat((output, a), dim=-1)
             output = self.attention_fc(combined)
-            output = self.fc(output)
+            output = self.decoder_fc(output)
+
             argmax_output = output.argmax(dim=-1)
             vec_out[:, i, :] = output.squeeze(1)
             vec_in = argmax_output
+
+            #Teacher forcing
             if forced_teaching > self.forced_th and target is not None:
                 target_argmax = target[:, i, :].argmax(dim=1).unsqueeze(1)
                 vec_in = target_argmax
@@ -117,7 +118,6 @@ class trajectory2seq(nn.Module):
         return vec_out, hidden, attention_w
 
     def forward(self, x, target):
-        # Passant avant
         out, h = self.encoder(x)
         out, hidden, attn = self.decoder(out, h, target)
         return out, hidden, attn
