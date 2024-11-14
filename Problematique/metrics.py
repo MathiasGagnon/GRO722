@@ -8,7 +8,6 @@ import seaborn as sns
 
 
 def edit_distance(a, b):
-    # Calcul de la distance d'édition
     dp = np.arange(len(b) + 1)
     for i, char_a in enumerate(a, 1):
         prev, dp[0] = dp[0], i
@@ -36,7 +35,6 @@ def confusion_matrix(true, pred, labels):
     
     sorted_labels = [labels[i] for i in range(num_classes)]
     
-    # Plot confusion matrix
     plt.figure(figsize=(8, 6))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=sorted_labels, yticklabels=sorted_labels)
     plt.xlabel('Predicted')

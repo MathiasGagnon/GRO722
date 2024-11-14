@@ -5,7 +5,7 @@ import os
 import torch
 from torch import nn
 import numpy as np
-from torch.utils.data import DataLoader, ConcatDataset
+from torch.utils.data import DataLoader
 from models import *
 from dataset import *
 from metrics import edit_distance, confusion_matrix
@@ -55,7 +55,7 @@ if __name__ == "__main__":
 
     # ---------------- Paramètres et hyperparamètres ----------------#
     force_cpu = False  # Forcer a utiliser le cpu?
-    training = False  # Entrainement?
+    training = True  # Entrainement?
     _test = True  # Test?
     learning_curves = True  # Affichage des courbes d'entrainement?
     gen_test_images = True  # Génération images test?
