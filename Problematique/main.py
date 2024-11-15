@@ -66,7 +66,7 @@ if __name__ == "__main__":
 
     # À compléter
     batch_size = 200  # Taille des lots
-    n_epochs = 150  # Nombre d'iteration sur l'ensemble de donnees
+    n_epochs = 800  # Nombre d'iteration sur l'ensemble de donnees
     lr = 0.015  # Taux d'apprentissage pour l'optimizateur
 
     n_hidden = 11  # Nombre de neurones caches par couche
@@ -84,9 +84,7 @@ if __name__ == "__main__":
         np.random.seed(seed)
 
     # Choix du device
-    device = torch.device(
-        "cpu"
-    )
+    device = torch.device("cuda" if torch.cuda.is_available() and not force_cpu else "cpu")
 
     # Instanciation de l'ensemble de données
     dataset = HandwrittenWords("data_trainval.p")

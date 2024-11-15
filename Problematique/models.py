@@ -48,7 +48,7 @@ class trajectory2seq(nn.Module):
             dropout=self.dropout_rate,
         )
 
-        self.premier_fc = nn.Linear(2, hidden_dim)
+        self.encoder_fc = nn.Linear(2, hidden_dim)
 
         self.attention_fc = nn.Sequential(
             nn.Linear(2 * hidden_dim, hidden_dim),
